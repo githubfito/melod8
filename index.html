@@ -7,7 +7,7 @@
 </head>
 <body>
 
-    <h1>MELOD8 Web Piano</h1>
+    <h1>MELOD8 Web Piano <span id="app-version"></span></h1>
 
     <div id="status-line">
         Octava: <span id="octave-factor">x1.00</span> | Notas: <span id="note-count">0</span> | Duración: <span id="duration-ms">150</span> ms | Archivo: <span id="file-name">CANCION.MUS</span>
@@ -27,7 +27,7 @@
         <button onclick="piano.handleCommand('4')">[4] CPC BASIC</button>
         <button onclick="piano.handleCommand('5')">[5] PB BASIC</button>
         <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
-        <button onclick="piano.handleCommand('8')">[8] MIDI Export</button>        
+        <button onclick="piano.handleCommand('8')">[8] MIDI Export</button>
         <button onclick="piano.handleCommand(',')">[ , ] Octava -</button>
         <button onclick="piano.handleCommand('.')">[ . ] Octava +</button>
         <button onclick="piano.handleCommand('m')">[M] Ayuda</button>
@@ -38,10 +38,8 @@
     <h2>Log del Sistema</h2>
     <pre id="log-area"></pre>
 
-    <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.js"></script>    
+    <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.js"></script> 
+    
     <script src="piano.js"></script> 
 </body>
 </html>
-
-
-
