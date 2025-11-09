@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>MelodEight Web Piano</title>
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body>
+
+    <h1>MELOD8 Web Piano</h1>
+
+    <div id="status-line">
+        Octava: <span id="octave-factor">x1.00</span> | Notas: <span id="note-count">0</span> | Duración: <span id="duration-ms">150</span> ms | Archivo: <span id="file-name">CANCION.MUS</span>
+    </div>
+    
+    <div id="keyboard-guide">
+        <h3>Teclado (A, S, D... / W, E, T...)</h3>
+        <p>A S D F G H J K L Ñ º - Ç (Blancas)</p>
+        <p>W E T Y U I O P [ ] (Negras)</p>
+    </div>
+
+    <div id="controls">
+        <button onclick="piano.handleCommand('0')">[0] Borrar</button>
+        <button onclick="piano.handleCommand('1')">[1] Cargar (.MUS)</button>
+        <button onclick="piano.handleCommand('2')">[2] Guardar (.MUS)</button>
+        <button onclick="piano.handleCommand('3')">[3] Reproducir</button>
+        <button onclick="piano.handleCommand('4')">[4] CPC BASIC</button>
+        <button onclick="piano.handleCommand('5')">[5] PB BASIC</button>
+        <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
+        <button onclick="piano.handleCommand(',')">[ , ] Octava -</button>
+        <button onclick="piano.handleCommand('.')">[ . ] Octava +</button>
+        <button onclick="piano.handleCommand('7')">[7] Fijar Duración</button>
+        <button onclick="piano.handleCommand('M')">[M] Ayuda</button>
+    </div>
+
+    <input type="file" id="file-input" accept=".mus" style="display:none;" onchange="window.piano.cargarMelodiaDesdeInput(this.files)">
+
+    <h2>Log del Sistema</h2>
+    <pre id="log-area"></pre>
+
+    <script src="piano.js"></script> 
+</body>
+</html>

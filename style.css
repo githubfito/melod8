@@ -1,0 +1,43 @@
+body {
+    font-family: monospace;
+    background-color: #e0ffe0; 
+    color: #000;
+    padding: 20px;
+}
+
+h1, h2, h3 {
+    color: #008000;
+}
+
+#status-line {
+    background-color: #006400; 
+    color: #fff;
+    padding: 5px;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+#keyboard-guide p {
+    background-color: #f0f0f0;
+    padding: 5px;
+    border-radius: 3px;
+    white-space: pre-wrap;
+    font-size: 0.9em;
+}
+
+#log-area {
+    background-color: #fff;
+    border: 1px solid #008000;
+    height: 250px; 
+    overflow-y: scroll; 
+    padding: 10px;
+}
+
+#controls button {
+    padding: 10px 15px;
+    margin-right: 10px;
+    margin-bottom: 10px;
+    background-color: #aaffaa;
+    border: 1px solid #008000;
+    cursor: pointer;
+}
