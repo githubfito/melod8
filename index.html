@@ -20,17 +20,17 @@
     </div>
 
     <div id="controls">
-        <button onclick="piano.handleCommand('0')">[0] Borrar</button>
-        <button onclick="piano.handleCommand('1')">[1] Cargar (.MUS)</button>
-        <button onclick="piano.handleCommand('2')">[2] Guardar (.MUS)</button>
-        <button onclick="piano.handleCommand('3')">[3] Reproducir</button>
+        <button onclick="piano.handleCommand('0')">[0] Erase</button>
+        <button onclick="piano.handleCommand('1')">[1] Load (.MUS)</button>
+        <button onclick="piano.handleCommand('2')">[2] Save (.MUS)</button>
+        <button onclick="piano.handleCommand('3')">[3] Play</button>
         <button onclick="piano.handleCommand('4')">[4] CPC BASIC</button>
         <button onclick="piano.handleCommand('5')">[5] PB BASIC</button>
         <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
         <button onclick="piano.handleCommand(',')">[ , ] Octava -</button>
         <button onclick="piano.handleCommand('.')">[ . ] Octava +</button>
-        <button onclick="piano.handleCommand('7')">[7] Fijar Duración</button>
-        <button onclick="piano.handleCommand('M')">[M] Ayuda</button>
+        <button onclick="piano.handleCommand('7')">[7] Duration Note</button>
+        <button onclick="piano.handleCommand('M')">[M] Help</button>
     </div>
 
     <input type="file" id="file-input" accept=".mus" style="display:none;" onchange="window.piano.cargarMelodiaDesdeInput(this.files)">
@@ -40,4 +40,5 @@
 
     <script src="piano.js"></script> 
 </body>
+
 </html>
