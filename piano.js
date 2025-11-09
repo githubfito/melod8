@@ -1,46 +1,46 @@
-// Variable global para el contexto de audio
+// Global variable for the audio context
 let audioContext;
 
 /**
- * Función asíncrona para generar un tono o una pausa usando Web Audio API.
- * @param {number} frecuencia - Frecuencia en Hz (0 para pausa).
- * @param {number} duracionMs - Duración en milisegundos.
+ * Asynchronous function to generate a tone or a pause using Web Audio API.
+ * @param {number} frequency - Frequency in Hz (0 for pause).
+ * @param {number} durationMs - Duration in milliseconds.
  * @returns {Promise<void>}
  */
-async function beep(frecuencia, duracionMs) {
+async function beep(frequency, durationMs) {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    if (frecuencia <= 0) {
-        return new Promise(resolve => setTimeout(resolve, duracionMs));
+    if (frequency <= 0) {
+        return new Promise(resolve => setTimeout(resolve, durationMs));
     }
 
     const oscillator = audioContext.createOscillator();
     oscillator.type = 'square'; 
     oscillator.connect(audioContext.destination);
-    oscillator.frequency.setValueAtTime(frecuencia, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
     oscillator.start();
 
     return new Promise(resolve => {
         setTimeout(() => {
             oscillator.stop(); 
             resolve();
-        }, duracionMs);
+        }, durationMs);
     });
 }
 
 /**
- * Función portátil para guardar texto como un archivo en el navegador.
+ * Portable function to save text as a file in the browser.
  */
-function guardarArchivoComo(contenido, nombreArchivo) {
+function saveFileAs(content, fileName) {
     try {
-        const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         
         const a = document.createElement('a');
         a.href = url;
-        a.download = nombreArchivo;
+        a.download = fileName;
         
         document.body.appendChild(a);
         a.click();
@@ -49,7 +49,7 @@ function guardarArchivoComo(contenido, nombreArchivo) {
         URL.revokeObjectURL(url);
         return true;
     } catch (e) {
-        console.error("Error al guardar el archivo:", e);
+        console.error("Error saving file:", e);
         return false;
     }
 }
@@ -57,65 +57,65 @@ function guardarArchivoComo(contenido, nombreArchivo) {
 
 class Piano {
     constructor() {
-        this.frecuenciaPorTecla = new Map();
-        this.grabacion = []; 
-        this.octavaFactor = [0.25, 0.5, 1.0, 2.0, 4.0];
-        this.indiceOctavaActual = 2; 
-        this.duracionPredeterminadaMs = 150; 
+        this.frequencyByKey = new Map();
+        this.recording = []; 
+        this.octaveFactor = [0.25, 0.5, 1.0, 2.0, 4.0];
+        this.currentOctaveIndex = 2; 
+        this.defaultDurationMs = 150; 
         this.isPlaying = false;
         this.cancelPlayback = false;
-        this.tiempoDeUltimaNotaMs = 0; 
-        this.ultimoArchivoProcesado = "CANCION.MUS"; 
+        this.timeOfLastNoteMs = 0; 
+        this.lastProcessedFile = "SONG.MUS"; 
 
         this.logArea = document.getElementById('log-area');
 
-        this.inicializarMapasDeNotas();
+        this.initializeNoteMaps();
         this.updateUIStatus();
-        this.logToConsole("Sistema inicializado. Pulsa una tecla de nota o un comando.");
+        this.logToConsole("System initialized. Press a note key or a command.");
         
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
     }
 
-    // --- UTILS Y COMANDOS ---
+    // --- UTILS AND COMMANDS ---
     
-    logToConsole(texto) {
-        const timestamp = new Date().toLocaleTimeString('es-ES');
-        const line = `[${timestamp}] ${texto}\n`;
+    logToConsole(text) {
+        const timestamp = new Date().toLocaleTimeString('en-US');
+        const line = `[${timestamp}] ${text}\n`;
         this.logArea.textContent += line;
         this.logArea.scrollTop = this.logArea.scrollHeight;
     }
 
     updateUIStatus() {
-        document.getElementById('octave-factor').textContent = `x${this.octavaFactor[this.indiceOctavaActual].toFixed(2)}`;
-        document.getElementById('note-count').textContent = this.grabacion.length;
-        document.getElementById('duration-ms').textContent = this.duracionPredeterminadaMs;
-        document.getElementById('file-name').textContent = this.ultimoArchivoProcesado; 
+        document.getElementById('octave-factor').textContent = `x${this.octaveFactor[this.currentOctaveIndex].toFixed(2)}`;
+        document.getElementById('note-count').textContent = this.recording.length;
+        document.getElementById('duration-ms').textContent = this.defaultDurationMs;
+        document.getElementById('file-name').textContent = this.lastProcessedFile; 
     }
 
-    inicializarMapasDeNotas() {
-        const keysBlancas = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ', 'º', '-', 'ç'];
-        const frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784, 880];
+    initializeNoteMaps() {
+        const whiteKeys = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ', 'º', '-', 'ç'];
+        const whiteFreqs = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784, 880];
 
-        const keysNegras = ['w', 'e', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'];
-        const frecNegras = [277, 311, 370, 415, 466, 554, 622, 740, 831, 932];
+        const blackKeys = ['w', 'e', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'];
+        const blackFreqs = [277, 311, 370, 415, 466, 554, 622, 740, 831, 932];
 
-        keysBlancas.forEach((key, i) => this.frecuenciaPorTecla.set(key, frecBlancas[i]));
-        keysNegras.forEach((key, i) => this.frecuenciaPorTecla.set(key, frecNegras[i]));
+        whiteKeys.forEach((key, i) => this.frequencyByKey.set(key, whiteFreqs[i]));
+        blackKeys.forEach((key, i) => this.frequencyByKey.set(key, blackFreqs[i]));
     }
     
     handleKeyDown(event) {
         const key = event.key.toLowerCase();
         
         if (this.isPlaying) {
-            this.logToConsole("Reproduccion cancelada por el usuario.");
+            this.logToConsole("Playback cancelled by user.");
             this.cancelPlayback = true;
             this.updateUIStatus(); 
             return;
         }
 
-        if (this.frecuenciaPorTecla.has(key)) {
+        if (this.frequencyByKey.has(key)) {
             event.preventDefault();
-            this.tocarYGrabarNota(key);
+            this.playAndRecordNote(key);
             this.updateUIStatus();
         } else {
             this.handleCommand(key);
@@ -126,164 +126,164 @@ class Piano {
         if (key === '0') {
             this.lockAndClearRecording();
         } else if (key === '1') {
-            this.logToConsole("Abriendo diálogo para Cargar melodía (.MUS)...");
+            this.logToConsole("Opening dialog to Load melody (.MUS)...");
             document.getElementById('file-input').click(); 
         } else if (key === '2') {
-            this.guardarMelodiaAArchivo();
+            this.saveMelodyToFile();
         } else if (key === '3') {
-            this.reproducirGrabacion();
+            this.playRecording();
         } else if (key === '4') {
-            this.generarYGuardarAmstradBasic();
+            this.generateAndSaveAmstradBasic();
         } else if (key === '5') {
-            this.generarYGuardarPbString();
+            this.generateAndSavePbString();
         } else if (key === '6') {
-            this.generarYGuardarZxBasic();
+            this.generateAndSaveZxBasic();
         } else if (key === ',') {
             this.changeOctave(-1);
         } else if (key === '.') {
             this.changeOctave(1);
         } else if (key === '7') {
-            this.fijarDuracionPredeterminada();
+            this.setDefaultDuration();
         } else if (key === 'm') {
-            this.mostrarAyudaCompleta();
+            this.showFullHelp();
         } else if (key === 'escape') {
-            this.logToConsole("Aplicacion finalizada.");
+            this.logToConsole("Application finished.");
         }
         this.updateUIStatus();
     }
     
-    async tocarYGrabarNota(key) {
-        const tiempoPulsacionMs = Date.now();
-        const freqBase = this.frecuenciaPorTecla.get(key);
-        const freqFinal = Math.floor(freqBase * this.octavaFactor[this.indiceOctavaActual]);
-        const dur = this.duracionPredeterminadaMs;
+    async playAndRecordNote(key) {
+        const timePressMs = Date.now();
+        const baseFreq = this.frequencyByKey.get(key);
+        const finalFreq = Math.floor(baseFreq * this.octaveFactor[this.currentOctaveIndex]);
+        const dur = this.defaultDurationMs;
         
-        const MIN_PAUSA_MS = 20.0;
+        const MIN_PAUSE_MS = 20.0;
 
-        if (this.tiempoDeUltimaNotaMs !== 0) {
-            let pausaMs = tiempoPulsacionMs - this.tiempoDeUltimaNotaMs;
+        if (this.timeOfLastNoteMs !== 0) {
+            let pauseMs = timePressMs - this.timeOfLastNoteMs;
             
-            if (pausaMs > MIN_PAUSA_MS) {
-                this.grabacion.push({ frecuencia: 0, duracionMs: pausaMs });
-                this.logToConsole(`PAUSA grabada (${pausaMs.toFixed(0)} ms)`);
+            if (pauseMs > MIN_PAUSE_MS) {
+                this.recording.push({ frequency: 0, durationMs: pauseMs });
+                this.logToConsole(`PAUSE recorded (${pauseMs.toFixed(0)} ms)`);
             }
         }
         
-        beep(freqFinal, dur); 
-        this.grabacion.push({ frecuencia: freqFinal, duracionMs: dur });
-        this.logToConsole(`Nota: ${key.toUpperCase()} (${freqFinal} Hz) grabada (${dur} ms)`);
+        beep(finalFreq, dur); 
+        this.recording.push({ frequency: finalFreq, durationMs: dur });
+        this.logToConsole(`Note: ${key.toUpperCase()} (${finalFreq} Hz) recorded (${dur} ms)`);
         
-        this.tiempoDeUltimaNotaMs = tiempoPulsacionMs + dur;
+        this.timeOfLastNoteMs = timePressMs + dur;
     }
     
     lockAndClearRecording() {
-        this.grabacion = [];
-        this.tiempoDeUltimaNotaMs = 0; 
-        this.ultimoArchivoProcesado = "CANCION.MUS";
-        this.logToConsole("--- NUEVA MELODIA / GRABACION BORRADA ---");
+        this.recording = [];
+        this.timeOfLastNoteMs = 0; 
+        this.lastProcessedFile = "SONG.MUS";
+        this.logToConsole("--- NEW MELODY / RECORDING CLEARED ---");
     }
 
-    async reproducirGrabacion() {
-        if (this.grabacion.length === 0 || this.isPlaying) {
-            this.logToConsole(this.isPlaying ? "Ya se esta reproduciendo." : "No hay notas grabadas.");
+    async playRecording() {
+        if (this.recording.length === 0 || this.isPlaying) {
+            this.logToConsole(this.isPlaying ? "Already playing." : "No notes recorded.");
             return;
         }
         
         this.isPlaying = true;
         this.cancelPlayback = false;
-        this.logToConsole(`--- INICIO REPRODUCCION (${this.grabacion.length} notas) ---`); 
+        this.logToConsole(`--- START PLAYBACK (${this.recording.length} notes) ---`); 
 
-        for (const nota of this.grabacion) {
+        for (const note of this.recording) {
             if (this.cancelPlayback) break;
-            await beep(nota.frecuencia, nota.duracionMs); 
+            await beep(note.frequency, note.durationMs); 
         }
 
         this.isPlaying = false;
         this.cancelPlayback = false;
-        this.logToConsole("--- FIN REPRODUCCION ---");
+        this.logToConsole("--- END PLAYBACK ---");
         this.updateUIStatus();
     }
 
     changeOctave(delta) {
-        const newIndex = this.indiceOctavaActual + delta;
-        if (newIndex >= 0 && newIndex < this.octavaFactor.length) {
-            this.indiceOctavaActual = newIndex;
-            this.logToConsole(`Octava cambiada. Factor: ${this.octavaFactor[this.indiceOctavaActual].toFixed(2)}`);
+        const newIndex = this.currentOctaveIndex + delta;
+        if (newIndex >= 0 && newIndex < this.octaveFactor.length) {
+            this.currentOctaveIndex = newIndex;
+            this.logToConsole(`Octave changed. Factor: ${this.octaveFactor[this.currentOctaveIndex].toFixed(2)}`);
         }
     }
     
-    fijarDuracionPredeterminada() {
-        const nuevaDuracion = prompt(`Duracion actual: ${this.duracionPredeterminadaMs} ms. Introduce nueva duracion (ms, >0):`);
-        const nueva = parseInt(nuevaDuracion);
+    setDefaultDuration() {
+        const newDuration = prompt(`Current duration: ${this.defaultDurationMs} ms. Enter new duration (ms, >0):`);
+        const newD = parseInt(newDuration);
         
-        if (!isNaN(nueva) && nueva > 0) {
-            this.duracionPredeterminadaMs = nueva;
-            this.logToConsole(`Duracion fijada a ${nueva} ms`); 
+        if (!isNaN(newD) && newD > 0) {
+            this.defaultDurationMs = newD;
+            this.logToConsole(`Duration set to ${newD} ms`); 
         } else {
-            this.logToConsole("Entrada invalida, no se cambio.");
+            this.logToConsole("Invalid input, not changed.");
         }
     }
 
-    eliminarPausasFinales() {
-        while (this.grabacion.length > 0 && this.grabacion[this.grabacion.length - 1].frecuencia === 0) {
-            this.grabacion.pop();
+    removeTrailingPauses() {
+        while (this.recording.length > 0 && this.recording[this.recording.length - 1].frequency === 0) {
+            this.recording.pop();
         }
     }
 
-    mostrarAyudaCompleta() {
+    showFullHelp() {
         const helpText = `
-COMANDOS DE GRABACION Y REPRODUCCION:
- [0]: Borrar melodia actual.
- [1]: Cargar melodia desde un archivo (.MUS).
- [2]: Guardar melodia a un archivo (.MUS).
- [3]: Reproducir la melodia grabada (Pulsa cualquier tecla para parar).
+RECORDING AND PLAYBACK COMMANDS:
+ [0]: Clear current melody.
+ [1]: Load melody from file (.MUS).
+ [2]: Save melody to file (.MUS).
+ [3]: Play the recorded melody (Press any key to stop).
 
-COMANDOS DE EXPORTACION (Generan archivos BASIC):
- [4]: Generar código Amstrad CPC BASIC (.BAS).
- [5]: Generar string PowerBASIC PLAY (.BAS).
- [6]: Generar código ZX Spectrum BASIC BEEP/PAUSE (.BAS).
+EXPORT COMMANDS (Generate BASIC files):
+ [4]: Generate Amstrad CPC BASIC code (.BAS).
+ [5]: Generate PowerBASIC PLAY string (.BAS).
+ [6]: Generate ZX Spectrum BASIC BEEP/PAUSE code (.BAS).
 
-COMANDOS DE CONFIGURACION:
- [7]: Fijar duracion predeterminada de las notas (en ms).
- [,]: Bajar la octava.
- [.]: Subir la octava.
- [M]: Mostrar esta ayuda.
+CONFIGURATION COMMANDS:
+ [7]: Set default note duration (in ms).
+ [,]: Decrease octave.
+ [.]: Increase octave.
+ [M]: Show this help.
 `;
-        this.logToConsole("------------------- AYUDA COMPLETA -------------------");
+        this.logToConsole("------------------- FULL HELP -------------------");
         this.logToConsole(helpText);
-        this.logToConsole("----------------- FIN AYUDA COMPLETA -----------------");
+        this.logToConsole("----------------- END OF HELP -----------------");
     }
 
-    // --- CARGA Y GUARDADO DE ARCHIVOS (.MUS) ---
+    // --- FILE LOADING AND SAVING (.MUS) ---
 
-    cargarMelodiaDesdeInput(fileList) {
+    loadMelodyFromInput(fileList) {
         if (fileList.length === 0) return;
 
         const file = fileList[0];
         const reader = new FileReader();
 
         reader.onload = (e) => {
-            const contenido = e.target.result;
-            this.parsearYAplicarMelodia(contenido, file.name);
+            const content = e.target.result;
+            this.parseAndApplyMelody(content, file.name);
             document.getElementById('file-input').value = ''; 
         };
 
         reader.onerror = () => {
-            this.logToConsole(`ERROR leyendo el archivo: ${file.name}`);
+            this.logToConsole(`ERROR reading file: ${file.name}`);
         };
 
         reader.readAsText(file);
     }
     
-    parsearYAplicarMelodia(contenido, nombreArchivo) {
-        const lineas = contenido.split('\n');
-        const nuevaGrabacion = [];
-        const MIN_DURACION_AUDIBLE_MS = 50.0; 
+    parseAndApplyMelody(content, fileName) {
+        const lines = content.split('\n');
+        const newRecording = [];
+        const MIN_AUDIBLE_DURATION_MS = 50.0; 
         
-        let errores = 0;
+        let errors = 0;
 
-        for (let i = 0; i < lineas.length; i++) {
-            let line = lineas[i].trim();
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
             
             if (!line || line.startsWith(';') || line.startsWith('#')) continue;
 
@@ -293,7 +293,7 @@ COMANDOS DE CONFIGURACION:
             const parts = norm.split(',');
 
             if (parts.length < 2) {
-                errores++;
+                errors++;
                 continue;
             }
 
@@ -301,106 +301,106 @@ COMANDOS DE CONFIGURACION:
             const dur = parseFloat(parts[1]); 
 
             if (isNaN(freq) || isNaN(dur)) {
-                errores++;
+                errors++;
                 continue;
             }
 
-            nuevaGrabacion.push({ 
-                frecuencia: freq, 
-                duracionMs: Math.max(dur, MIN_DURACION_AUDIBLE_MS) 
+            newRecording.push({ 
+                frequency: freq, 
+                durationMs: Math.max(dur, MIN_AUDIBLE_DURATION_MS) 
             });
         }
 
-        if (errores > 0) {
-            this.logToConsole(`ADVERTENCIA: Se ignoraron ${errores} líneas con formato incorrecto.`);
+        if (errors > 0) {
+            this.logToConsole(`WARNING: ${errors} lines with incorrect format were ignored.`);
         }
 
-        if (nuevaGrabacion.length > 0) {
-            this.grabacion = nuevaGrabacion;
-            this.ultimoArchivoProcesado = nombreArchivo;
-            this.tiempoDeUltimaNotaMs = 0; 
-            this.logToConsole(`Archivo ${nombreArchivo} cargado correctamente (${this.grabacion.length} notas).`);
+        if (newRecording.length > 0) {
+            this.recording = newRecording;
+            this.lastProcessedFile = fileName;
+            this.timeOfLastNoteMs = 0; 
+            this.logToConsole(`File ${fileName} loaded correctly (${this.recording.length} notes).`);
         } else {
-            this.logToConsole(`ERROR: Archivo ${nombreArchivo} no contiene notas válidas.`);
+            this.logToConsole(`ERROR: File ${fileName} does not contain valid notes.`);
         }
         this.updateUIStatus();
     }
 
-    guardarMelodiaAArchivo() {
-        this.eliminarPausasFinales();
+    saveMelodyToFile() {
+        this.removeTrailingPauses();
 
-        if (this.grabacion.length === 0) {
-            this.logToConsole("No hay notas para guardar.");
+        if (this.recording.length === 0) {
+            this.logToConsole("No notes to save.");
             return;
         }
 
-        let contenido = '';
-        for (const n of this.grabacion) {
-            contenido += `${n.frecuencia.toFixed(0)},${n.duracionMs.toFixed(2)},00\n`;
+        let content = '';
+        for (const n of this.recording) {
+            content += `${n.frequency.toFixed(0)},${n.durationMs.toFixed(2)},00\n`;
         }
 
-        let nombre = this.ultimoArchivoProcesado;
-        if (!nombre.toUpperCase().endsWith(".MUS")) {
-            nombre = nombre.includes('.') ? nombre : `${nombre}.MUS`;
+        let name = this.lastProcessedFile;
+        if (!name.toUpperCase().endsWith(".MUS")) {
+            name = name.includes('.') ? name : `${name}.MUS`;
         }
         
-        if (guardarArchivoComo(contenido, nombre)) {
-            this.logToConsole(`Melodia guardada como ${nombre}.`);
+        if (saveFileAs(content, name)) {
+            this.logToConsole(`Melody saved as ${name}.`);
         } else {
-            this.logToConsole("ERROR al guardar el archivo.");
+            this.logToConsole("ERROR saving file.");
         }
     }
 
 
-    // --- FUNCIONES DE EXPORTACIÓN BASIC ---
+    // --- BASIC EXPORT FUNCTIONS ---
 
-    generarYGuardarAmstradBasic() {
-        this.eliminarPausasFinales();
+    generateAndSaveAmstradBasic() {
+        this.removeTrailingPauses();
 
-        if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
+        if (this.recording.length === 0) { this.logToConsole("No notes to export."); return; }
 
         let sb = "10 REM MELOD8 MELOD6 by fitosoft AMSTRAD CPC BASIC\n"; 
-        let linea = 20;
+        let line = 20;
 
-        for (const n of this.grabacion) {
-            const durEsc = Math.max(1, Math.round(n.duracionMs / 10.0)); 
+        for (const n of this.recording) {
+            const durScaled = Math.max(1, Math.round(n.durationMs / 10.0)); 
             
-            if (n.frecuencia === 0) {
-                sb += `${linea} SOUND 2,1,${durEsc},0\n`; 
+            if (n.frequency === 0) {
+                sb += `${line} SOUND 2,1,${durScaled},0\n`; 
             } else {
-                let pitch = Math.round(62500.0 / n.frecuencia);
+                let pitch = Math.round(62500.0 / n.frequency);
                 pitch = Math.max(1, Math.min(4095, pitch)); 
-                sb += `${linea} SOUND 2,${pitch},${durEsc}\n`;
+                sb += `${line} SOUND 2,${pitch},${durScaled}\n`;
             }
-            linea += 10;
+            line += 10;
         }
 
-        if (guardarArchivoComo(sb, "cpc.bas")) {
-            this.logToConsole("Archivo cpc.bas generado correctamente (Ajuste de duracion CPC aplicado).");
+        if (saveFileAs(sb, "cpc.bas")) {
+            this.logToConsole("File cpc.bas generated correctly (CPC duration adjustment applied).");
         } else {
-            this.logToConsole("ERROR exportando Amstrad. Revisa la consola del navegador.");
+            this.logToConsole("ERROR exporting Amstrad. Check the browser console.");
         }
     }
 
-    generarYGuardarPbString() {
-        this.eliminarPausasFinales();
+    generateAndSavePbString() {
+        this.removeTrailingPauses();
 
-        if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
+        if (this.recording.length === 0) { this.logToConsole("No notes to export."); return; }
         
         const FILENAME = "MELOD8.BAS";
         let sb = "10 REM MELOD8 MELOD6 by fitosoft POWERBASIC EXPORT\n"; 
-        let linea = 20;
+        let line = 20;
         let play = "T255"; 
-        const duracionL1Ms = 900.0; 
+        const durationL1Ms = 900.0; 
 
-        for (const n of this.grabacion) {
-            let pb_L_factor = Math.round(duracionL1Ms / n.duracionMs);
+        for (const n of this.recording) {
+            let pb_L_factor = Math.round(durationL1Ms / n.durationMs);
             pb_L_factor = Math.max(1, Math.min(64, pb_L_factor));
 
             play += "L" + pb_L_factor;
 
-            if (n.frecuencia > 0) {
-                const freqHz = Math.max(20.0, n.frecuencia);
+            if (n.frequency > 0) {
+                const freqHz = Math.max(20.0, n.frequency);
                 const midiNote = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
                 let pbNote = Math.round(midiNote - 36.0); 
 
@@ -427,59 +427,59 @@ COMANDOS DE CONFIGURACION:
             }
             
             if (firstPart) {
-                sb += `${linea} M$ = "${part}"\n`;
+                sb += `${line} M$ = "${part}"\n`;
                 firstPart = false;
             } else {
-                sb += `${linea} M$ = M$ + "${part}"\n`;
+                sb += `${line} M$ = M$ + "${part}"\n`;
             }
             idx += len;
-            linea += 10; 
+            line += 10; 
         }
 
-        sb += `${linea} PLAY M$\n`;
-        linea += 10;
-        sb += `${linea} END\n`;
+        sb += `${line} PLAY M$\n`;
+        line += 10;
+        sb += `${line} END\n`;
 
-        if (guardarArchivoComo(sb, FILENAME)) {
-            this.logToConsole(`Archivo ${FILENAME} generado correctamente (Ajustes de tempo y tono PowerBASIC).`);
+        if (saveFileAs(sb, FILENAME)) {
+            this.logToConsole(`File ${FILENAME} generated correctly (PowerBASIC tempo and pitch adjustments).`);
         } else {
-            this.logToConsole("ERROR exportando PowerBASIC. Revisa la consola del navegador.");
+            this.logToConsole("ERROR exporting PowerBASIC. Check the browser console.");
         }
     }
 
-    generarYGuardarZxBasic() {
-        this.eliminarPausasFinales();
+    generateAndSaveZxBasic() {
+        this.removeTrailingPauses();
         
-        if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
+        if (this.recording.length === 0) { this.logToConsole("No notes to export."); return; }
 
         let sb = "10 REM MELOD8 MELOD6 by fitosoft ZX BASIC\n"; 
-        let linea = 20;
+        let line = 20;
         const FRECUENCIA_DO_CENTRAL_ZX = 261.63; 
 
-        for (const n of this.grabacion) {
-            if (n.frecuencia > 0) {
-                const durSeg = n.duracionMs / 1000.0;
-                const freqHz = Math.max(20.0, n.frecuencia);
+        for (const n of this.recording) {
+            if (n.frequency > 0) {
+                const durSec = n.durationMs / 1000.0;
+                const freqHz = Math.max(20.0, n.frequency);
                 
                 const semitones = 12.0 * (Math.log(freqHz / FRECUENCIA_DO_CENTRAL_ZX) / Math.log(2.0));
                 let pitch = Math.round(semitones);
 
                 pitch = Math.max(-60, Math.min(60, pitch)); 
 
-                sb += `${linea} BEEP ${durSeg.toFixed(2)},${pitch}\n`; 
+                sb += `${line} BEEP ${durSec.toFixed(2)},${pitch}\n`; 
             } else {
-                let durFrames = Math.round(n.duracionMs / 20.0);
+                let durFrames = Math.round(n.durationMs / 20.0);
                 durFrames = Math.max(1, Math.min(32767, durFrames)); 
 
-                sb += `${linea} PAUSE ${durFrames}\n`;
+                sb += `${line} PAUSE ${durFrames}\n`;
             }
-            linea += 10;
+            line += 10;
         }
 
-        if (guardarArchivoComo(sb, "ZX.BAS")) {
-            this.logToConsole("Archivo ZX.BAS generado correctamente.");
+        if (saveFileAs(sb, "ZX.BAS")) {
+            this.logToConsole("File ZX.BAS generated correctly.");
         } else {
-            this.logToConsole("ERROR exportando ZX Spectrum. Revisa la consola del navegador.");
+            this.logToConsole("ERROR exporting ZX Spectrum. Check the browser console.");
         }
     }
 }
