@@ -2,10 +2,13 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <h1>MELOD8 Web Piano. Fitosoft 2025</h2>
+    <title>MelodEight Web Piano</title>
     <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
+
+    <h1>MELOD8 Web Piano</h1>
+
     <div id="status-line">
         Octava: <span id="octave-factor">x1.00</span> | Notas: <span id="note-count">0</span> | Duración: <span id="duration-ms">150</span> ms | Archivo: <span id="file-name">CANCION.MUS</span>
     </div>
@@ -26,8 +29,7 @@
         <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
         <button onclick="piano.handleCommand(',')">[ , ] Octava -</button>
         <button onclick="piano.handleCommand('.')">[ . ] Octava +</button>
-        <button onclick="piano.handleCommand('7')">[7] Fijar Duración</button>
-        <button onclick="piano.handleCommand('M')">[M] Ayuda</button>
+        <button onclick="piano.handleCommand('m')">[M] Ayuda</button>
     </div>
 
     <input type="file" id="file-input" accept=".mus" style="display:none;" onchange="window.piano.cargarMelodiaDesdeInput(this.files)">
@@ -37,6 +39,4 @@
 
     <script src="piano.js"></script> 
 </body>
-
 </html>
-
