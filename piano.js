@@ -1,23 +1,3 @@
-//
-// --- BITÁCORA DE VERSIONES ---
-//
-// v1.0 (2025-11-09): 
-// - Implementación inicial.
-// - Funcionalidad básica de tocar notas con Web Audio API.
-// - Grabación de notas y pausas con duración dinámica (tiempo real).
-// - Reproducción de la melodía grabada.
-// - Comandos de control de octava, borrado, carga/guardado (.MUS).
-// - Exportación a Amstrad CPC, PowerBASIC, y ZX Spectrum BASIC.
-//
-// v1.1 (2025-11-10):
-// - Eliminado el comando [7] (Fijar Duración Predeterminada).
-// - Corregido el manejo de la tecla [M] para mostrar la ayuda.
-// - Añadido el comando [8] para la exportación real a MIDI (.MID) usando la librería midi-writer-js.
-//
-// -----------------------------
-//
-var MELOD8_VERSION = "1.1"; // Identificador de la versión actual
-
 // Variable global para el contexto de audio
 var audioContext;
 // Mapa para seguir los osciladores que suenan (ya que la detención ahora es manual)
@@ -71,17 +51,11 @@ function stopBeep(oscillator, duracionMs) {
 
 
 /**
- * Función portátil para guardar contenido (texto o binario) como un archivo.
- * @param {string | ArrayBuffer} contenido - El contenido del archivo.
- * @param {string} nombreArchivo - El nombre que tendrá el archivo descargado.
- * @param {string} [mimeType] - MIME type del contenido. Por defecto 'text/plain'.
- * @returns {boolean}
+ * Función portátil para guardar texto como un archivo en el navegador.
  */
-function guardarArchivoComo(contenido, nombreArchivo, mimeType) {
-    mimeType = mimeType || 'text/plain;charset=utf-8';
+function guardarArchivoComo(contenido, nombreArchivo) {
     try {
-        // Para ArrayBuffer (como el que genera la librería MIDI), se necesita el constructor Blob
-        var blob = new Blob([contenido], { type: mimeType });
+        var blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
         var url = URL.createObjectURL(blob);
         
         var a = document.createElement('a');
@@ -122,7 +96,7 @@ function Piano() {
 
     this.inicializarMapasDeNotas();
     this.updateUIStatus();
-    this.logToConsole("Sistema MELOD8 v" + MELOD8_VERSION + " inicializado. Pulsa una tecla de nota o un comando.");
+    this.logToConsole("Sistema inicializado. Pulsa una tecla de nota o un comando.");
     
     // Se usa .bind(this) para mantener el contexto de la clase
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -210,13 +184,11 @@ Piano.prototype.handleCommand = function(key) {
         this.generarYGuardarPbString();
     } else if (key === '6') {
         this.generarYGuardarZxBasic();
-    } else if (key === '8') { // NUEVO: Comando MIDI
-        this.generarYGuardarMidi(); 
     } else if (key === ',') {
         this.changeOctave(-1);
     } else if (key === '.') {
         this.changeOctave(1);
-    } else if (key === 'm') {
+    } else if (key === 'm') { // Se mantiene 'm' para capturar la tecla 'm'
         this.mostrarAyudaCompleta();
     } else if (key === 'escape') {
         this.logToConsole("Aplicacion finalizada.");
@@ -355,6 +327,8 @@ Piano.prototype.changeOctave = function(delta) {
     }
 };
 
+// --- FUNCIÓN ELIMINADA: Piano.prototype.fijarDuracionPredeterminada ---
+
 Piano.prototype.eliminarPausasFinales = function() {
     while (this.grabacion.length > 0 && this.grabacion[this.grabacion.length - 1].frecuencia === 0) {
         this.grabacion.pop();
@@ -369,11 +343,10 @@ Piano.prototype.mostrarAyudaCompleta = function() {
 " [2]: Guardar melodia a un archivo (.MUS).\n" +
 " [3]: Reproducir la melodia grabada (Pulsa cualquier tecla para parar).\n" +
 "\n" +
-"COMANDOS DE EXPORTACION:\n" +
+"COMANDOS DE EXPORTACION (Generan archivos BASIC):\n" +
 " [4]: Generar código Amstrad CPC BASIC (.BAS).\n" +
 " [5]: Generar string PowerBASIC PLAY (.BAS).\n" +
 " [6]: Generar código ZX Spectrum BASIC BEEP/PAUSE (.BAS).\n" +
-" [8]: Exportar a MIDI (.MID).\n" + // Ayuda actualizada
 "\n" +
 "COMANDOS DE CONFIGURACION:\n" +
 " [,]: Bajar la octava.\n" +
@@ -484,100 +457,14 @@ Piano.prototype.guardarMelodiaAArchivo = function() {
 };
 
 
-// --- FUNCIONES DE EXPORTACIÓN ---
-
-/**
- * Función auxiliar para convertir una frecuencia (Hz) a un número de nota MIDI.
- * N = 69 + 12 * log2(f / 440)
- * @param {number} freqHz - Frecuencia en Hercios.
- * @returns {number} Número de nota MIDI (0-127).
- */
-function freqToMidiNote(freqHz) {
-    if (freqHz <= 0) return 0; 
-    
-    // Calcula la nota MIDI, redondeando al entero más cercano (temperamento igual)
-    var midiNote = 69 + 12 * (Math.log(freqHz / 440.0) / Math.log(2.0));
-    
-    return Math.max(1, Math.min(127, Math.round(midiNote)));
-}
-
-
-Piano.prototype.generarYGuardarMidi = function() {
-    this.eliminarPausasFinales();
-
-    if (this.grabacion.length === 0) { 
-        this.logToConsole("No hay notas grabadas para exportar a MIDI."); 
-        return; 
-    }
-
-    // Comprueba si la librería MidiWriter.js está disponible
-    if (typeof MidiWriter === 'undefined') {
-        this.logToConsole("ERROR: La librería midi-writer-js no está cargada. Asegúrate de incluirla en index.html.");
-        return;
-    }
-    
-    var TEMPO_BPM = 120; // Tempo predeterminado
-    var VELOCITY = 100; // Volumen (0-127)
-    var TPB = 480;      // Ticks Per Beat (por defecto en midi-writer-js)
-    var MS_PER_TICK = (60000 / TEMPO_BPM) / TPB; // ms por tick
-
-    var writer = new MidiWriter.Writer();
-    var track = new MidiWriter.Track();
-
-    // 1. Configurar el Tempo (obligatorio para calcular ticks correctamente)
-    track.setTempo(TEMPO_BPM);
-    
-    for (var i = 0; i < this.grabacion.length; i++) {
-        var n = this.grabacion[i];
-        
-        // Conversión de Duración (ms) a Ticks (T)
-        // Math.round asegura que la duración se cuantice al tick más cercano
-        var durationTicks = Math.max(1, Math.round(n.duracionMs / MS_PER_TICK));
-        
-        // El formato de duración para eventos arbitrarios de midi-writer-js es T<ticks>
-        var durationT = 'T' + durationTicks.toFixed(0); 
-        
-        if (n.frecuencia > 0) {
-            var midiNote = freqToMidiNote(n.frecuencia);
-            
-            // Crea un evento de nota (NoteOn y NoteOff combinados)
-            var noteEvent = new MidiWriter.NoteEvent({ 
-                pitch: [midiNote], 
-                duration: durationT,
-                velocity: VELOCITY,
-                sequential: false // No importa aquí
-            });
-            track.addEvent(noteEvent);
-            
-            this.logToConsole("MIDI: Nota " + midiNote + " (" + n.frecuencia.toFixed(0) + " Hz) añadida.");
-        } else {
-            // Añadir una pausa (Rest)
-            var rest = new MidiWriter.EventTypes.Rest(durationT);
-            track.addEvent(rest);
-            this.logToConsole("MIDI: Pausa de " + n.duracionMs.toFixed(0) + " ms añadida.");
-        }
-    }
-    
-    writer.addTrack(track);
-    
-    // Obtener los datos binarios (ArrayBuffer)
-    var binaryData = writer.buildArrayBuffer();
-    
-    var nombre = this.ultimoArchivoProcesado.replace(".MUS", "") + ".MID";
-
-    if (guardarArchivoComo(binaryData, nombre, 'audio/midi')) {
-        this.logToConsole("Archivo MIDI binario REAL guardado como " + nombre + " (Tempo: " + TEMPO_BPM + " BPM).");
-    } else {
-        this.logToConsole("ERROR exportando MIDI. Revisa la consola del navegador.");
-    }
-};
+// --- FUNCIONES DE EXPORTACIÓN BASIC ---
 
 Piano.prototype.generarYGuardarAmstradBasic = function() {
     this.eliminarPausasFinales();
 
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 v" + MELOD8_VERSION + " by fitosoft AMSTRAD CPC BASIC\n"; 
+    var sb = "10 REM MELOD8 MELOD6 by fitosoft AMSTRAD CPC BASIC\n"; 
     var linea = 20;
 
     for (var i = 0; i < this.grabacion.length; i++) {
@@ -607,7 +494,7 @@ Piano.prototype.generarYGuardarPbString = function() {
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
     
     var FILENAME = "MELOD8.BAS";
-    var sb = "10 REM MELOD8 v" + MELOD8_VERSION + " by fitosoft POWERBASIC EXPORT\n"; 
+    var sb = "10 REM MELOD8 MELOD6 by fitosoft POWERBASIC EXPORT\n"; 
     var linea = 20;
     var play = "T255"; 
     var duracionL1Ms = 900.0; 
@@ -672,7 +559,7 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 v" + MELOD8_VERSION + " by fitosoft ZX BASIC\n"; 
+    var sb = "10 REM MELOD8 MELOD6 by fitosoft ZX BASIC\n"; 
     var linea = 20;
     var FRECUENCIA_DO_CENTRAL_ZX = 261.63; 
 
