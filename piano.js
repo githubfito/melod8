@@ -1,18 +1,3 @@
-//
-// --- BITÁCORA DE VERSIONES ---
-//
-// v1.0 (2025-11-09): 
-// - Implementación inicial.
-// - Funcionalidad básica de tocar notas con Web Audio API.
-// - Grabación de notas y pausas con duración dinámica (tiempo real).
-// - Reproducción de la melodía grabada.
-// - Comandos de control de octava, borrado, carga/guardado (.MUS).
-// - Exportación a Amstrad CPC, PowerBASIC, y ZX Spectrum BASIC.
-//
-// -----------------------------
-//
-var MELOD8_VERSION = "1.0"; // Identificador de la versión actual
-
 // Variable global para el contexto de audio
 var audioContext;
 // Mapa para seguir los osciladores que suenan (ya que la detención ahora es manual)
@@ -111,8 +96,7 @@ function Piano() {
 
     this.inicializarMapasDeNotas();
     this.updateUIStatus();
-    // NOTA: Se puede mostrar la versión aquí si la UI lo soporta, o en el log.
-    this.logToConsole("Sistema MELOD8 v" + MELOD8_VERSION + " inicializado. Pulsa una tecla de nota o un comando.");
+    this.logToConsole("Sistema inicializado. Pulsa una tecla de nota o un comando.");
     
     // Se usa .bind(this) para mantener el contexto de la clase
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
@@ -204,9 +188,7 @@ Piano.prototype.handleCommand = function(key) {
         this.changeOctave(-1);
     } else if (key === '.') {
         this.changeOctave(1);
-    } else if (key === '7') {
-        this.fijarDuracionPredeterminada();
-    } else if (key === 'm') {
+    } else if (key === 'm') { // Se mantiene 'm' para capturar la tecla 'm'
         this.mostrarAyudaCompleta();
     } else if (key === 'escape') {
         this.logToConsole("Aplicacion finalizada.");
@@ -345,17 +327,7 @@ Piano.prototype.changeOctave = function(delta) {
     }
 };
 
-Piano.prototype.fijarDuracionPredeterminada = function() {
-    var nuevaDuracion = prompt("Duracion actual (SOLO PARA REPRODUCCION): " + this.duracionPredeterminadaMs + " ms. Introduce nueva duracion (ms, >0):");
-    var nueva = parseInt(nuevaDuracion);
-    
-    if (!isNaN(nueva) && nueva > 0) {
-        this.duracionPredeterminadaMs = nueva;
-        this.logToConsole("Duracion fijada a " + nueva + " ms"); 
-    } else {
-        this.logToConsole("Entrada invalida, no se cambio.");
-    }
-};
+// --- FUNCIÓN ELIMINADA: Piano.prototype.fijarDuracionPredeterminada ---
 
 Piano.prototype.eliminarPausasFinales = function() {
     while (this.grabacion.length > 0 && this.grabacion[this.grabacion.length - 1].frecuencia === 0) {
@@ -377,10 +349,9 @@ Piano.prototype.mostrarAyudaCompleta = function() {
 " [6]: Generar código ZX Spectrum BASIC BEEP/PAUSE (.BAS).\n" +
 "\n" +
 "COMANDOS DE CONFIGURACION:\n" +
-" [7]: Fijar duracion predeterminada de las notas (en ms).\n" +
 " [,]: Bajar la octava.\n" +
 " [.]: Subir la octava.\n" +
-" [M]: Mostrar esta ayuda.\n";
+" [M]: Mostrar esta ayuda (se pulsa la tecla 'm').\n";
     this.logToConsole("------------------- AYUDA COMPLETA -------------------");
     this.logToConsole(helpText);
     this.logToConsole("----------------- FIN AYUDA COMPLETA -----------------");
@@ -493,7 +464,7 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
 
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 v" + MELOD8_VERSION + " by fitosoft AMSTRAD CPC BASIC\n"; 
+    var sb = "10 REM MELOD8 MELOD6 by fitosoft AMSTRAD CPC BASIC\n"; 
     var linea = 20;
 
     for (var i = 0; i < this.grabacion.length; i++) {
@@ -523,7 +494,7 @@ Piano.prototype.generarYGuardarPbString = function() {
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
     
     var FILENAME = "MELOD8.BAS";
-    var sb = "10 REM MELOD8 v" + MELOD8_VERSION + " by fitosoft POWERBASIC EXPORT\n"; 
+    var sb = "10 REM MELOD8 MELOD6 by fitosoft POWERBASIC EXPORT\n"; 
     var linea = 20;
     var play = "T255"; 
     var duracionL1Ms = 900.0; 
@@ -588,7 +559,7 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 v" + MELOD8_VERSION + " by fitosoft ZX BASIC\n"; 
+    var sb = "10 REM MELOD8 MELOD6 by fitosoft ZX BASIC\n"; 
     var linea = 20;
     var FRECUENCIA_DO_CENTRAL_ZX = 261.63; 
 
