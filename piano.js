@@ -9,14 +9,15 @@
 // - Comandos de control de octava, borrado, carga/guardado (.MUS).
 // - Exportación a Amstrad CPC, PowerBASIC, y ZX Spectrum BASIC.
 //
-// v1.1 (2025-11-10):
-// - Eliminado el comando [7] (Fijar Duración Predeterminada).
-// - Corregido el manejo de la tecla [M] para mostrar la ayuda.
-// - Añadido el comando [8] para la exportación real a MIDI (.MID) usando la librería midi-writer-js.
+// v1.2 (2025-11-10):
+// - Eliminado el comando [7] (Fijar Duración Predeterminada) y añadido el comando [8] (MIDI Export).
+// - Se ha corregido el manejo del comando [M] (Ayuda).
+// - Implementada la función de exportación real a MIDI (.MID) usando la librería externa midi-writer-js.
+// - Se ha implementado la visualización de la versión en el HTML.
 //
 // -----------------------------
 //
-var MELOD8_VERSION = "1.1"; // Identificador de la versión actual
+var MELOD8_VERSION = "1.2"; // Identificador de la versión actual
 
 // Variable global para el contexto de audio
 var audioContext;
@@ -122,6 +123,7 @@ function Piano() {
 
     this.inicializarMapasDeNotas();
     this.updateUIStatus();
+    // 1. Mostrar la versión en el log
     this.logToConsole("Sistema MELOD8 v" + MELOD8_VERSION + " inicializado. Pulsa una tecla de nota o un comando.");
     
     // Se usa .bind(this) para mantener el contexto de la clase
@@ -139,6 +141,8 @@ Piano.prototype.logToConsole = function(texto) {
 };
 
 Piano.prototype.updateUIStatus = function() {
+    // 2. Mostrar la versión en el HTML
+    document.getElementById('app-version').textContent = "(v" + MELOD8_VERSION + ")";
     document.getElementById('octave-factor').textContent = "x" + this.octavaFactor[this.indiceOctavaActual].toFixed(2);
     document.getElementById('note-count').textContent = this.grabacion.length;
     document.getElementById('duration-ms').textContent = this.duracionPredeterminadaMs; 
@@ -373,7 +377,7 @@ Piano.prototype.mostrarAyudaCompleta = function() {
 " [4]: Generar código Amstrad CPC BASIC (.BAS).\n" +
 " [5]: Generar string PowerBASIC PLAY (.BAS).\n" +
 " [6]: Generar código ZX Spectrum BASIC BEEP/PAUSE (.BAS).\n" +
-" [8]: Exportar a MIDI (.MID).\n" + // Ayuda actualizada
+" [8]: Exportar a MIDI (.MID).\n" +
 "\n" +
 "COMANDOS DE CONFIGURACION:\n" +
 " [,]: Bajar la octava.\n" +
@@ -519,7 +523,9 @@ Piano.prototype.generarYGuardarMidi = function() {
     var TEMPO_BPM = 120; // Tempo predeterminado
     var VELOCITY = 100; // Volumen (0-127)
     var TPB = 480;      // Ticks Per Beat (por defecto en midi-writer-js)
-    var MS_PER_TICK = (60000 / TEMPO_BPM) / TPB; // ms por tick
+    // MS_PER_BEAT = 60000 / TEMPO_BPM
+    // MS_PER_TICK = (MS_PER_BEAT) / TPB
+    var MS_PER_TICK = (60000 / TEMPO_BPM) / TPB; 
 
     var writer = new MidiWriter.Writer();
     var track = new MidiWriter.Track();
