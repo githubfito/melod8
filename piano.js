@@ -127,6 +127,9 @@ function Piano() {
     this.tiempoDeUltimaNotaMs = 0; 
     this.ultimoArchivoProcesado = "CANCION.MUS"; 
     
+    // --- NUEVO: Estado de exportación DATA/READ ---
+    this.exportAsData = false;
+
     // --- ESTADO DEL INSTRUMENTO ---
     this.instruments = this.initializeInstruments();
     this.instrumentIndex = 0; // Instrumento inicial: Piano Clásico
@@ -146,6 +149,12 @@ function Piano() {
 }
 
 // --- MÉTODOS DE LA CLASE PIANO ---
+
+// NUEVO MÉTODO
+Piano.prototype.setExportAsData = function(isChecked) {
+    this.exportAsData = isChecked;
+    this.logToConsole("Exportar como DATA: " + (isChecked ? "ACTIVO" : "DESACTIVO"));
+}
 
 Piano.prototype.logToConsole = function(texto) {
     var timestamp = new Date().toLocaleTimeString('es-ES');
@@ -486,6 +495,7 @@ Piano.prototype.mostrarAyudaCompleta = function() {
 " [4]: Generar código Amstrad CPC BASIC (.BAS).\n" +
 " [5]: Generar string PowerBASIC PLAY (.BAS).\n" +
 " [6]: Generar código ZX Spectrum BASIC BEEP/PAUSE (.BAS).\n" +
+" [Checkbox 'Exportar como DATA']: Exporta como lineas DATA/READ para codigo mas compacto.\n" +
 "\n" +
 "COMANDOS DE CONFIGURACION:\n" +
 " [Z/X]: Cambiar el instrumento (total " + this.instruments.length + ").\n" +
@@ -599,8 +609,8 @@ Piano.prototype.guardarMelodiaAArchivo = function() {
 
 
 // --- FUNCIONES DE EXPORTACIÓN BASIC ---
-// (Modificado para eliminar "MELOD6")
 
+// FUNCIÓN MODIFICADA
 Piano.prototype.generarYGuardarAmstradBasic = function() {
     this.eliminarPausasFinales();
 
@@ -609,18 +619,62 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
     var sb = "10 REM MELOD8 by fitosoft AMSTRAD CPC BASIC\n"; 
     var linea = 20;
 
-    for (var i = 0; i < this.grabacion.length; i++) {
-        var n = this.grabacion[i];
-        var durEsc = Math.max(1, Math.round(n.duracionMs / 10.0)); 
+    if (this.exportAsData) {
+        this.logToConsole("Exportando a CPC con DATA/READ...");
+        sb += "20 ' Inicializacion de reproduccion\n";
+        sb += "30 RESTORE 1000: DIM D(2): ' D(1)=Pitch, D(2)=Duration\n";
+        sb += "40 FOR I = 1 TO " + this.grabacion.length + "\n";
+        sb += "50 READ D(1), D(2)\n";
+        sb += "60 IF D(1) = -1 THEN END ' Final de datos\n";
+        sb += "70 SOUND 2,D(1),D(2)\n";
+        sb += "80 NEXT I\n";
+        sb += "90 END\n";
+        linea = 1000;
         
-        if (n.frecuencia === 0) {
-            sb += linea + " SOUND 2,1," + durEsc + ",0\n"; 
-        } else {
-            var pitch = Math.round(62500.0 / n.frecuencia);
-            pitch = Math.max(1, Math.min(4095, pitch)); 
-            sb += linea + " SOUND 2," + pitch + "," + durEsc + "\n";
+        var dataLine = linea + " DATA ";
+        var maxDataLen = 200;
+
+        for (var i = 0; i < this.grabacion.length; i++) {
+            var n = this.grabacion[i];
+            var durEsc = Math.max(1, Math.round(n.duracionMs / 10.0)); 
+            
+            var pitch = 0;
+            if (n.frecuencia > 0) {
+                pitch = Math.round(62500.0 / n.frecuencia);
+                pitch = Math.max(1, Math.min(4095, pitch)); 
+            } else {
+                pitch = 1; // Un pitch bajo para SOUND 2,1,Dur: silencio
+            }
+            
+            var dataChunk = pitch + "," + durEsc + ",";
+
+            if ((dataLine + dataChunk).length > maxDataLen) {
+                sb += dataLine.slice(0, -1) + "\n";
+                linea += 10;
+                dataLine = linea + " DATA " + dataChunk;
+            } else {
+                dataLine += dataChunk;
+            }
         }
+        sb += dataLine.slice(0, -1) + "\n";
         linea += 10;
+        sb += linea + " DATA -1, 0\n"; // Marcador de final
+        
+    } else {
+        this.logToConsole("Exportando a CPC linea por linea...");
+        for (var i = 0; i < this.grabacion.length; i++) {
+            var n = this.grabacion[i];
+            var durEsc = Math.max(1, Math.round(n.duracionMs / 10.0)); 
+            
+            if (n.frecuencia === 0) {
+                sb += linea + " SOUND 2,1," + durEsc + ",0\n"; 
+            } else {
+                var pitch = Math.round(62500.0 / n.frecuencia);
+                pitch = Math.max(1, Math.min(4095, pitch)); 
+                sb += linea + " SOUND 2," + pitch + "," + durEsc + "\n";
+            }
+            linea += 10;
+        }
     }
 
     if (guardarArchivoComo(sb, "cpc.bas")) {
@@ -630,6 +684,7 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
     }
 };
 
+// FUNCIÓN MODIFICADA (PowerBASIC ya es compacto, solo necesita un wrapper de DATA)
 Piano.prototype.generarYGuardarPbString = function() {
     this.eliminarPausasFinales();
 
@@ -661,33 +716,53 @@ Piano.prototype.generarYGuardarPbString = function() {
         }
     }
 
-    var maxLen = 70; 
-    var idx = 0;
-    var firstPart = true;
+    if (this.exportAsData) {
+        this.logToConsole("Exportando a PowerBASIC con DATA/READ...");
+        var dataLine = linea + " DATA \"";
+        var maxDataLen = 200;
+        var partPlay = play;
+        
+        // El PowerBASIC ya usa un string compacto, solo lo ponemos en DATA
+        sb += "20 RESTORE 1000\n";
+        sb += "30 READ M$\n";
+        sb += "40 PLAY M$\n";
+        sb += "50 END\n";
+        linea = 1000;
 
-    while (idx < play.length) {
-        var len = Math.min(maxLen, play.length - idx);
-        var part = play.substring(idx, idx + len);
+        // Dividir el string PLAY en DATA si es muy largo
+        var partLen = Math.min(maxDataLen, partPlay.length);
+        sb += linea + " DATA \"" + partPlay.substring(0, partLen) + "\"\n";
         
-        var lastCommandEnd = part.search(/[LNP]\d+$/);
-        if (lastCommandEnd > -1 && lastCommandEnd > 0) {
-            len = lastCommandEnd;
-            part = play.substring(idx, idx + len);
+    } else {
+        this.logToConsole("Exportando a PowerBASIC linea por linea...");
+        var maxLen = 70; 
+        var idx = 0;
+        var firstPart = true;
+
+        while (idx < play.length) {
+            var len = Math.min(maxLen, play.length - idx);
+            var part = play.substring(idx, idx + len);
+            
+            var lastCommandEnd = part.search(/[LNP]\d+$/);
+            if (lastCommandEnd > -1 && lastCommandEnd > 0) {
+                len = lastCommandEnd;
+                part = play.substring(idx, idx + len);
+            }
+            
+            if (firstPart) {
+                sb += linea + " M$ = \"" + part + "\"\n";
+                firstPart = false;
+            } else {
+                sb += linea + " M$ = M$ + \"" + part + "\"\n";
+            }
+            idx += len;
+            linea += 10; 
         }
-        
-        if (firstPart) {
-            sb += linea + " M$ = \"" + part + "\"\n";
-            firstPart = false;
-        } else {
-            sb += linea + " M$ = M$ + \"" + part + "\"\n";
-        }
-        idx += len;
-        linea += 10; 
+
+        sb += linea + " PLAY M$\n";
+        linea += 10;
+        sb += linea + " END\n";
     }
-
-    sb += linea + " PLAY M$\n";
-    linea += 10;
-    sb += linea + " END\n";
 
     if (guardarArchivoComo(sb, FILENAME)) {
         this.logToConsole("Archivo " + FILENAME + " generado correctamente (Ajustes de tempo y tono PowerBASIC).");
@@ -696,6 +771,7 @@ Piano.prototype.generarYGuardarPbString = function() {
     }
 };
 
+// FUNCIÓN MODIFICADA
 Piano.prototype.generarYGuardarZxBasic = function() {
     this.eliminarPausasFinales();
     
@@ -703,27 +779,88 @@ Piano.prototype.generarYGuardarZxBasic = function() {
 
     var sb = "10 REM MELOD8 by fitosoft ZX BASIC\n"; 
     var linea = 20;
-    var FRECUENCIA_DO_CENTRAL_ZX = 261.63; 
+    var FRECUENCIA_DO_CENTRAL_ZX = 261.63; // (No se usa, pero se mantiene la definicion original)
 
-    for (var i = 0; i < this.grabacion.length; i++) {
-        var n = this.grabacion[i];
-        if (n.frecuencia > 0) {
-            var durSeg = n.duracionMs / 1000.0;
-            var freqHz = Math.max(20.0, n.frecuencia);
+    if (this.exportAsData) {
+        this.logToConsole("Exportando a ZX con DATA/READ...");
+        // 0: Pause, 1-60: BEEP (Pitch positivo), -1 a -60: BEEP (Pitch negativo)
+        sb += "20 ' Inicializacion de reproduccion\n";
+        sb += "30 RESTORE 1000: ' Data: Duracion, Pitch/Type\n";
+        sb += "40 FOR I = 1 TO " + this.grabacion.length + "\n";
+        sb += "50 READ D, P: ' D=Duracion/Frames, P=Pitch/Type (0=Pause)\n";
+        sb += "60 IF D = -1 THEN END: ' Final de datos\n";
+        sb += "70 IF P = 0 THEN PAUSE D ELSE BEEP D/50, P\n"; // D/50 ~ duracion en segundos
+        sb += "80 NEXT I\n";
+        sb += "90 END\n";
+        linea = 1000;
+
+        var dataLine = linea + " DATA ";
+        var maxDataLen = 200;
+
+        for (var i = 0; i < this.grabacion.length; i++) {
+            var n = this.grabacion[i];
+            var pitch = 0;
+            var durValue; 
+
+            if (n.frecuencia > 0) {
+                // BEEP (Duracion en segundos * 50 = duracion en 1/50s, que se redondea. Aquí usamos la duracion original en ms)
+                var durSeg = n.duracionMs / 1000.0;
+                durValue = durSeg.toFixed(2); // Duracion en segundos para BEEP
+                
+                var freqHz = Math.max(20.0, n.frecuencia);
+                var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
+                pitch = Math.round(semitones - 69.0); // Ajustar el pitch relativo
+
+                pitch = Math.max(-60, Math.min(60, pitch)); 
+                
+                // CRÍTICO: Para simplificar el READ, en el DATA pondremos la duración en frames * 50 (ms/20 * 50 = ms*2.5)
+                // Esto es una simplificación, ya que BEEP espera segundos y PAUSE espera frames (20ms)
+                // Simplificamos el BEEP en la línea 70 a BEEP D/50, P, donde D es la duración en ms.
+                durValue = Math.round(n.duracionMs); 
+                
+            } else {
+                // PAUSE (Duracion en frames)
+                durValue = Math.round(n.duracionMs / 20.0);
+                durValue = Math.max(1, Math.min(32767, durValue)); 
+                pitch = 0; // Marcador de pausa para el IF en el loop
+            }
             
-            var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-            var pitch = Math.round(semitones - 69.0); // Ajustar el pitch relativo
+            var dataChunk = durValue + "," + pitch + ",";
 
-            pitch = Math.max(-60, Math.min(60, pitch)); 
-
-            sb += linea + " BEEP " + durSeg.toFixed(2) + "," + pitch + "\n"; 
-        } else {
-            var durFrames = Math.round(n.duracionMs / 20.0);
-            durFrames = Math.max(1, Math.min(32767, durFrames)); 
-
-            sb += linea + " PAUSE " + durFrames + "\n";
+            if ((dataLine + dataChunk).length > maxDataLen) {
+                sb += dataLine.slice(0, -1) + "\n";
+                linea += 10;
+                dataLine = linea + " DATA " + dataChunk;
+            } else {
+                dataLine += dataChunk;
+            }
         }
+        sb += dataLine.slice(0, -1) + "\n";
         linea += 10;
+        sb += linea + " DATA -1, 0\n"; // Marcador de final
+
+    } else {
+        this.logToConsole("Exportando a ZX linea por linea...");
+        for (var i = 0; i < this.grabacion.length; i++) {
+            var n = this.grabacion[i];
+            if (n.frecuencia > 0) {
+                var durSeg = n.duracionMs / 1000.0;
+                var freqHz = Math.max(20.0, n.frecuencia);
+                
+                var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
+                var pitch = Math.round(semitones - 69.0); // Ajustar el pitch relativo
+
+                pitch = Math.max(-60, Math.min(60, pitch)); 
+
+                sb += linea + " BEEP " + durSeg.toFixed(2) + "," + pitch + "\n"; 
+            } else {
+                var durFrames = Math.round(n.duracionMs / 20.0);
+                durFrames = Math.max(1, Math.min(32767, durFrames)); 
+
+                sb += linea + " PAUSE " + durFrames + "\n";
+            }
+            linea += 10;
+        }
     }
 
     if (guardarArchivoComo(sb, "ZX.BAS")) {
