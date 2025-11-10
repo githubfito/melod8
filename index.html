@@ -30,6 +30,8 @@
         <button onclick="piano.handleCommand(',')">[ , ] Octava -</button>
         <button onclick="piano.handleCommand('.')">[ . ] Octava +</button>
         <button onclick="piano.handleCommand('m')">[M] Ayuda</button>
+        <input type="checkbox" id="export-as-data" onchange="window.piano.setExportAsData(this.checked)">
+        <label for="export-as-data">Exportar como DATA</label>
     </div>
 
     <input type="file" id="file-input" accept=".mus" style="display:none;" onchange="window.piano.cargarMelodiaDesdeInput(this.files)">
@@ -41,4 +43,3 @@
     <script src="piano.js"></script> 
 </body>
 </html>
-
