@@ -44,39 +44,46 @@ function startBeep(frecuencia, instrument) {
 
 /**
  * Detiene un oscilador después de un tiempo específico (útil para reproducción de melodías grabadas).
- * Aplica la atenuación (DECAY/RELEASE) basada en los parámetros del instrumento y la duración total.
+ * APLICA EL RELEASE DEL INSTRUMENTO a partir de la duracionMs grabada.
+ * La promesa se resuelve después de duracionMs para mantener la cadena de reproducción a tiempo.
  * @param {Object} audioNode - Objeto {osc: OscillatorNode, gain: GainNode}
- * @param {number} duracionMs - Duración total de la nota.
+ * @param {number} duracionMs - Duración de la pulsación de tecla grabada (Sustain Time).
  * @param {Object} instrument - Objeto que contiene los parámetros ADSR.
  * @returns {Promise<void>}
  */
 function stopBeep(audioNode, duracionMs, instrument) {
     if (audioNode && audioNode.osc) {
+        // --- 1. PROGRAMACIÓN DEL DECAIMIENTO Y LA PARADA DEL SONIDO ---
+        var durationSec = duracionMs / 1000.0;
+        var now = audioContext.currentTime;
+        var releaseTime = instrument.release; // Tiempo de release del instrumento
+
+        // 1. Calculamos el tiempo en segundos en que la pulsación 'termina' (inicio del Release)
+        var releaseStartTime = now + durationSec;
+        
+        // 2. Calculamos el tiempo total que sonará (pulsación + release)
+        var totalSoundTimeSec = durationSec + releaseTime; 
+        var totalSoundTimeMs = duracionMs + (releaseTime * 1000); 
+        
+        // Aplicar el RELEASE: Rampa exponencial de sustainLevel a cero
+        audioNode.gain.gain.cancelScheduledValues(now);
+        audioNode.gain.gain.setValueAtTime(instrument.sustainLevel, releaseStartTime); 
+        audioNode.gain.gain.exponentialRampToValueAtTime(0.0001, now + totalSoundTimeSec); 
+        
+        // Detenemos el oscilador cuando el sonido ha decaído completamente (Esto corre en segundo plano)
+        setTimeout(function() {
+            try {
+                audioNode.osc.stop(); 
+            } catch (e) {
+                // Ya se detuvo
+            }
+        }, totalSoundTimeMs); 
+        
+        // --- 2. SINCRONIZACIÓN DE LA CADENA DE REPRODUCCIÓN ---
         return new Promise(function(resolve) {
-            
-            var durationSec = duracionMs / 1000.0;
-            var now = audioContext.currentTime;
-            
-            // Decaimiento/Release: El volumen decae a cero al final de la nota.
-            // Esto asegura que la nota suena por toda la duracionMs
-            
-            // Cancelamos cualquier schedule anterior (p. ej., el ataque)
-            audioNode.gain.gain.cancelScheduledValues(now);
-            
-            // Mantenemos el volumen al nivel de sustain por la mayor parte de la nota
-            audioNode.gain.gain.setValueAtTime(instrument.sustainLevel, now);
-
-            // Aplicamos el RELEASE final
-            audioNode.gain.gain.exponentialRampToValueAtTime(0.0001, now + durationSec); 
-
-            setTimeout(function() {
-                try {
-                    audioNode.osc.stop(); 
-                } catch (e) {
-                    // Ya se detuvo
-                }
-                resolve();
-            }, duracionMs);
+            // CRÍTICO: Resolvemos la promesa después de la duración *grabada* (duracionMs).
+            // Esto permite que la siguiente nota o pausa comience a tiempo.
+            setTimeout(resolve, duracionMs); 
         });
     }
     return Promise.resolve();
@@ -116,6 +123,7 @@ function Piano() {
     this.duracionPredeterminadaMs = 150; 
     this.isPlaying = false;
     this.cancelPlayback = false;
+    // CRÍTICO: Este valor ahora almacena el tiempo de *fin de pulsación* (no fin de sonido) de la última nota.
     this.tiempoDeUltimaNotaMs = 0; 
     this.ultimoArchivoProcesado = "CANCION.MUS"; 
     
@@ -213,7 +221,7 @@ Piano.prototype.handleKeyDown = function(event) {
         return;
     }
 
-    // --- NUEVA LÓGICA DE INSTRUMENTO (Z/X) ---
+    // --- LÓGICA DE INSTRUMENTO (Z/X) ---
     if (key === 'z') {
         event.preventDefault();
         this.changeInstrument(-1);
@@ -351,33 +359,48 @@ Piano.prototype.detenerYGrabarNota = function(key) {
         var duracionMs = Math.max(1, tiempoSoltarMs - tiempoInicio); 
         var freqFinal = notaActiva.freq;
         
-        this.grabarNotaYPausa(freqFinal, duracionMs, tiempoInicio);
+        // El tiempo de fin de la pulsación es tiempoSoltarMs
+        this.grabarNotaYPausa(freqFinal, duracionMs, tiempoInicio, tiempoSoltarMs);
         delete this.tiempoInicioPulsacion[key];
     }
 };
 
 /**
  * Graba la pausa anterior y la nueva nota con su duración calculada.
+ * Vuelve a usar el tiempo de *fin de pulsación* (tiempoFinPulsacion) para calcular la pausa,
+ * asegurando que la velocidad de la melodía se mantenga fiel a la interpretación,
+ * independientemente del Release del instrumento.
  */
-Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoInicio) {
-    var MIN_PAUSA_MS = 20.0;
+Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoInicio, tiempoFinPulsacion) {
+    var MIN_PAUSA_MS = 1.0; 
     
     // 1. Grabar la pausa (silencio entre la nota anterior y esta)
     if (this.tiempoDeUltimaNotaMs !== 0) {
+        // La pausa es el tiempo desde que la *pulsación* anterior finalizó (this.tiempoDeUltimaNotaMs) 
+        // hasta que la *nueva nota* empezó (tiempoInicio).
         var pausaMs = tiempoInicio - this.tiempoDeUltimaNotaMs;
         
+        // Mantenemos esta lógica simple para respetar la velocidad de interpretación.
         if (pausaMs > MIN_PAUSA_MS) {
-            this.grabacion.push({ frecuencia: 0, duracionMs: pausaMs });
-            this.logToConsole("PAUSA grabada (" + pausaMs.toFixed(0) + " ms)");
+            // Ajuste CRÍTICO: Reducimos la pausa para que quede el 76% de la duración original (dividir por 1 / 0.76 = 1.315789).
+            var PAUSE_REDUCTION_DIVISOR = 1.3157894736842106;
+            var pausaReducidaMs = pausaMs / PAUSE_REDUCTION_DIVISOR; 
+
+            this.grabacion.push({ frecuencia: 0, duracionMs: pausaReducidaMs });
+            this.logToConsole("PAUSA grabada (reducida al 76%): " + pausaReducidaMs.toFixed(0) + " ms");
+        } else if (pausaMs < -MIN_PAUSA_MS) {
+             // Esto significa que la nueva nota se presionó mucho antes de soltar la anterior (superposición).
+             this.logToConsole("Superposicion de pulsacion (Chord/Legato).");
         }
     }
     
-    // 2. Grabar la nueva nota
+    // 2. Grabar la nueva nota (duración de la pulsación)
     this.grabacion.push({ frecuencia: freqFinal, duracionMs: duracionNotaMs });
     this.logToConsole("Nota: " + freqFinal + " Hz grabada (" + duracionNotaMs + " ms)");
     
     // 3. Actualizar el tiempo de fin de la última nota grabada
-    this.tiempoDeUltimaNotaMs = tiempoInicio + duracionNotaMs;
+    // CRÍTICO: Usamos el tiempo de fin de PULSACIÓN (no el tiempo de fin de sonido) para calcular la siguiente pausa.
+    this.tiempoDeUltimaNotaMs = tiempoFinPulsacion;
 };
 
 Piano.prototype.lockAndClearRecording = function() {
@@ -416,16 +439,20 @@ Piano.prototype.reproducirGrabacion = function() {
         var promise;
 
         if (nota.frecuencia > 0) {
-            // startBeep solo hace el ATTACK. stopBeep hace el DECAY/SUSTAIN sobre la duración de la nota.
+            // startBeep solo hace el ATTACK. 
             var audioNode = startBeep(nota.frecuencia, currentInstrument); 
+            // stopBeep: programa el release *en segundo plano* y devuelve una promesa 
+            // que se resuelve al final de la duración grabada (duracionMs).
             promise = stopBeep(audioNode, nota.duracionMs, currentInstrument);
         } else {
             promise = new Promise(function(resolve) {
+                // Las pausas solo esperan la duración grabada.
                 setTimeout(resolve, nota.duracionMs);
             });
         }
         
         promise.then(function() {
+            // Se llama a la siguiente nota/pausa inmediatamente después de que termina el tiempo grabado.
             playNext(index + 1);
         });
     }
@@ -572,14 +599,14 @@ Piano.prototype.guardarMelodiaAArchivo = function() {
 
 
 // --- FUNCIONES DE EXPORTACIÓN BASIC ---
-// (No modificado)
+// (Modificado para eliminar "MELOD6")
 
 Piano.prototype.generarYGuardarAmstradBasic = function() {
     this.eliminarPausasFinales();
 
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 MELOD6 by fitosoft AMSTRAD CPC BASIC\n"; 
+    var sb = "10 REM MELOD8 by fitosoft AMSTRAD CPC BASIC\n"; 
     var linea = 20;
 
     for (var i = 0; i < this.grabacion.length; i++) {
@@ -609,7 +636,7 @@ Piano.prototype.generarYGuardarPbString = function() {
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
     
     var FILENAME = "MELOD8.BAS";
-    var sb = "10 REM MELOD8 MELOD6 by fitosoft POWERBASIC EXPORT\n"; 
+    var sb = "10 REM MELOD8 by fitosoft POWERBASIC EXPORT\n"; 
     var linea = 20;
     var play = "T255"; 
     var duracionL1Ms = 900.0; 
@@ -674,7 +701,7 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 MELOD6 by fitosoft ZX BASIC\n"; 
+    var sb = "10 REM MELOD8 by fitosoft ZX BASIC\n"; 
     var linea = 20;
     var FRECUENCIA_DO_CENTRAL_ZX = 261.63; 
 
