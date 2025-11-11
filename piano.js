@@ -128,7 +128,7 @@ function Piano() {
     this.ultimoArchivoProcesado = "CANCION.MUS"; 
     
     // --- NUEVO: Estado de exportación DATA/READ ---
-    this.exportAsData = false;
+    this.exportAsData = false; 
 
     // --- ESTADO DEL INSTRUMENTO ---
     this.instruments = this.initializeInstruments();
@@ -150,24 +150,35 @@ function Piano() {
 
 // --- MÉTODOS DE LA CLASE PIANO ---
 
-// NUEVO MÉTODO
+/**
+ * Método necesario para manejar el checkbox de exportación DATA/READ.
+ */
 Piano.prototype.setExportAsData = function(isChecked) {
     this.exportAsData = isChecked;
-    this.logToConsole("Exportar como DATA: " + (isChecked ? "ACTIVO" : "DESACTIVO"));
+    this.logToConsole("Exportar como DATA/READ: " + (isChecked ? "ACTIVO" : "DESACTIVO"));
 }
 
 Piano.prototype.logToConsole = function(texto) {
     var timestamp = new Date().toLocaleTimeString('es-ES');
     var line = "[" + timestamp + "] " + texto + "\n";
-    this.logArea.textContent += line;
-    this.logArea.scrollTop = this.logArea.scrollHeight;
+    if (this.logArea) {
+        this.logArea.textContent += line;
+        this.logArea.scrollTop = this.logArea.scrollHeight;
+    } else {
+        console.log(line.trim());
+    }
 };
 
 Piano.prototype.updateUIStatus = function() {
-    document.getElementById('octave-factor').textContent = "x" + this.octavaFactor[this.indiceOctavaActual].toFixed(2);
-    document.getElementById('note-count').textContent = this.grabacion.length;
-    document.getElementById('duration-ms').textContent = this.duracionPredeterminadaMs; 
-    document.getElementById('file-name').textContent = this.ultimoArchivoProcesado; 
+    // Solo actualizar si los elementos existen en el DOM
+    var oe = document.getElementById('octave-factor');
+    var nc = document.getElementById('note-count');
+    var dm = document.getElementById('duration-ms');
+    var fn = document.getElementById('file-name');
+    if (oe) oe.textContent = "x" + this.octavaFactor[this.indiceOctavaActual].toFixed(2);
+    if (nc) nc.textContent = this.grabacion.length;
+    if (dm) dm.textContent = this.duracionPredeterminadaMs; 
+    if (fn) fn.textContent = this.ultimoArchivoProcesado; 
 };
 
 /**
@@ -269,14 +280,7 @@ Piano.prototype.handleKeyUp = function(event) {
 
 Piano.prototype.changeInstrument = function(delta) {
     var totalInstruments = this.instruments.length;
-    var newIndex = this.instrumentIndex + delta;
-
-    if (newIndex >= totalInstruments) {
-        newIndex = 0; // Vuelve al inicio
-    } else if (newIndex < 0) {
-        newIndex = totalInstruments - 1; // Vuelve al final
-    }
-
+    var newIndex = (this.instrumentIndex + delta + totalInstruments) % totalInstruments;
     this.instrumentIndex = newIndex;
     var instrumentName = this.instruments[newIndex].name;
     this.logToConsole("Usando instrumento: " + instrumentName + " (Índice " + (newIndex + 1) + "/" + totalInstruments + ")");
@@ -495,7 +499,7 @@ Piano.prototype.mostrarAyudaCompleta = function() {
 " [4]: Generar código Amstrad CPC BASIC (.BAS).\n" +
 " [5]: Generar string PowerBASIC PLAY (.BAS).\n" +
 " [6]: Generar código ZX Spectrum BASIC BEEP/PAUSE (.BAS).\n" +
-" [Checkbox 'Exportar como DATA']: Exporta como lineas DATA/READ para codigo mas compacto.\n" +
+" [Checkbox 'Exportar como DATA/READ']: Exporta como lineas DATA/READ para codigo mas compacto (RECOMENDADO).\n" +
 "\n" +
 "COMANDOS DE CONFIGURACION:\n" +
 " [Z/X]: Cambiar el instrumento (total " + this.instruments.length + ").\n" +
@@ -508,7 +512,6 @@ Piano.prototype.mostrarAyudaCompleta = function() {
 };
 
 // --- CARGA Y GUARDADO DE ARCHIVOS (.MUS) ---
-// (No modificado, utiliza la lógica de archivo previa)
 
 Piano.prototype.cargarMelodiaDesdeInput = function(fileList) {
     if (fileList.length === 0) return;
@@ -610,7 +613,6 @@ Piano.prototype.guardarMelodiaAArchivo = function() {
 
 // --- FUNCIONES DE EXPORTACIÓN BASIC ---
 
-// FUNCIÓN MODIFICADA
 Piano.prototype.generarYGuardarAmstradBasic = function() {
     this.eliminarPausasFinales();
 
@@ -621,15 +623,18 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
 
     if (this.exportAsData) {
         this.logToConsole("Exportando a CPC con DATA/READ...");
-        sb += "20 ' Inicializacion de reproduccion\n";
-        sb += "30 RESTORE 1000: DIM D(2): ' D(1)=Pitch, D(2)=Duration\n";
+        
+        const LINEA_DATA_INICIO = 100;
+        
+        sb += "20 REM Inicializacion de reproduccion\n";
+        sb += "30 RESTORE " + LINEA_DATA_INICIO + ": DIM D(2): REM D(1)=Pitch, D(2)=Duration\n";
         sb += "40 FOR I = 1 TO " + this.grabacion.length + "\n";
         sb += "50 READ D(1), D(2)\n";
-        sb += "60 IF D(1) = -1 THEN END ' Final de datos\n";
+        sb += "60 IF D(1) = -1 THEN END: REM Final de datos\n";
         sb += "70 SOUND 2,D(1),D(2)\n";
         sb += "80 NEXT I\n";
         sb += "90 END\n";
-        linea = 1000;
+        linea = LINEA_DATA_INICIO;
         
         var dataLine = linea + " DATA ";
         var maxDataLen = 200;
@@ -675,6 +680,7 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
             }
             linea += 10;
         }
+        sb += linea + " END\n";
     }
 
     if (guardarArchivoComo(sb, "cpc.bas")) {
@@ -684,7 +690,6 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
     }
 };
 
-// FUNCIÓN MODIFICADA (PowerBASIC ya es compacto, solo necesita un wrapper de DATA)
 Piano.prototype.generarYGuardarPbString = function() {
     this.eliminarPausasFinales();
 
@@ -718,20 +723,20 @@ Piano.prototype.generarYGuardarPbString = function() {
 
     if (this.exportAsData) {
         this.logToConsole("Exportando a PowerBASIC con DATA/READ...");
-        var dataLine = linea + " DATA \"";
-        var maxDataLen = 200;
+        
+        const LINEA_DATA_INICIO = 100;
+
+        // El PowerBASIC ya usa un string compacto, solo lo ponemos en DATA
+        sb += "20 REM Inicializacion de reproduccion\n";
+        sb += "30 RESTORE " + LINEA_DATA_INICIO + "\n";
+        sb += "40 READ M$: REM M$ contiene el string PLAY\n";
+        sb += "50 PLAY M$\n";
+        sb += "60 END\n";
+        linea = LINEA_DATA_INICIO;
+
         var partPlay = play;
         
-        // El PowerBASIC ya usa un string compacto, solo lo ponemos en DATA
-        sb += "20 RESTORE 1000\n";
-        sb += "30 READ M$\n";
-        sb += "40 PLAY M$\n";
-        sb += "50 END\n";
-        linea = 1000;
-
-        // Dividir el string PLAY en DATA si es muy largo
-        var partLen = Math.min(maxDataLen, partPlay.length);
-        sb += linea + " DATA \"" + partPlay.substring(0, partLen) + "\"\n";
+        sb += linea + " DATA \"" + partPlay + "\"\n";
         
     } else {
         this.logToConsole("Exportando a PowerBASIC linea por linea...");
@@ -771,61 +776,65 @@ Piano.prototype.generarYGuardarPbString = function() {
     }
 };
 
-// FUNCIÓN MODIFICADA
+/**
+ * Función CORREGIDA y OPTIMIZADA para ZX Spectrum.
+ * Ahora los bloques DATA inician en la línea 90 (inmediatamente después del programa principal).
+ */
 Piano.prototype.generarYGuardarZxBasic = function() {
     this.eliminarPausasFinales();
     
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
     var sb = "10 REM MELOD8 by fitosoft ZX BASIC\n"; 
-    var linea = 20;
-    var FRECUENCIA_DO_CENTRAL_ZX = 261.63; // (No se usa, pero se mantiene la definicion original)
+    
+    // CRÍTICO: Establecemos la línea de inicio de DATA después de la línea 80.
+    const LINEA_PROGRAMA_FINAL = 80;
+    const LINEA_DATA_INICIO = LINEA_PROGRAMA_FINAL + 10; // Resulta en 90
+    var MAX_FRAME_DURATION = 32767;
 
+    // ----------------------------------------------------
+    // LÓGICA DE EXPORTACIÓN DATA/READ (Compacto y Rápido)
+    // ----------------------------------------------------
     if (this.exportAsData) {
-        this.logToConsole("Exportando a ZX con DATA/READ...");
-        // 0: Pause, 1-60: BEEP (Pitch positivo), -1 a -60: BEEP (Pitch negativo)
-        sb += "20 ' Inicializacion de reproduccion\n";
-        sb += "30 RESTORE 1000: ' Data: Duracion, Pitch/Type\n";
-        sb += "40 FOR I = 1 TO " + this.grabacion.length + "\n";
-        sb += "50 READ D, P: ' D=Duracion/Frames, P=Pitch/Type (0=Pause)\n";
-        sb += "60 IF D = -1 THEN END: ' Final de datos\n";
-        sb += "70 IF P = 0 THEN PAUSE D ELSE BEEP D/50, P\n"; // D/50 ~ duracion en segundos
-        sb += "80 NEXT I\n";
-        sb += "90 END\n";
-        linea = 1000;
-
+        this.logToConsole("Exportando a ZX con DATA/READ (Datos pre-calculados - Optimo) a partir de línea " + LINEA_DATA_INICIO + "...");
+        
+        sb += "20 REM Inicializacion de reproduccion\n";
+        sb += "30 RESTORE " + LINEA_DATA_INICIO + "\n"; // Usa RESTORE 90
+        sb += "40 READ P, D\n";
+        sb += "50 IF P = -99 THEN STOP: REM Final de datos\n";
+        sb += "60 IF P <> 0 THEN BEEP D, P: GOTO 40\n";
+        sb += "70 IF P = 0 THEN PAUSE D: GOTO 40\n"; // D es ya >= 1 (corrección PAUSE)
+        sb += "80 GOTO 40\n";
+        
+        var linea = LINEA_DATA_INICIO; // Empezamos a generar los DATA aquí (90)
         var dataLine = linea + " DATA ";
         var maxDataLen = 200;
 
         for (var i = 0; i < this.grabacion.length; i++) {
             var n = this.grabacion[i];
-            var pitch = 0;
-            var durValue; 
+            
+            var P = 0; // Pitch (0 para pausa)
+            var D = 0; // Duración (Segundos para BEEP, Frames para PAUSE)
 
             if (n.frecuencia > 0) {
-                // BEEP (Duracion en segundos * 50 = duracion en 1/50s, que se redondea. Aquí usamos la duracion original en ms)
+                // Pre-cálculo para BEEP
                 var durSeg = n.duracionMs / 1000.0;
-                durValue = durSeg.toFixed(2); // Duracion en segundos para BEEP
-                
                 var freqHz = Math.max(20.0, n.frecuencia);
+                
                 var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-                pitch = Math.round(semitones - 69.0); // Ajustar el pitch relativo
-
-                pitch = Math.max(-60, Math.min(60, pitch)); 
+                P = Math.round(semitones - 69.0); // Pitch relativo
                 
-                // CRÍTICO: Para simplificar el READ, en el DATA pondremos la duración en frames * 50 (ms/20 * 50 = ms*2.5)
-                // Esto es una simplificación, ya que BEEP espera segundos y PAUSE espera frames (20ms)
-                // Simplificamos el BEEP en la línea 70 a BEEP D/50, P, donde D es la duración en ms.
-                durValue = Math.round(n.duracionMs); 
-                
+                P = Math.max(-60, Math.min(60, P)); 
+                D = durSeg.toFixed(3); // Duración en segundos (3 decimales).
             } else {
-                // PAUSE (Duracion en frames)
-                durValue = Math.round(n.duracionMs / 20.0);
-                durValue = Math.max(1, Math.min(32767, durValue)); 
-                pitch = 0; // Marcador de pausa para el IF en el loop
+                // Pre-cálculo para PAUSE
+                P = 0; // Flag de pausa
+                var durFrames = Math.round(n.duracionMs / 20.0);
+                // CRÍTICO: Aseguramos que la duración mínima es 1 (PAUSE 1)
+                D = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames)); 
             }
             
-            var dataChunk = durValue + "," + pitch + ",";
+            var dataChunk = P + "," + D + ",";
 
             if ((dataLine + dataChunk).length > maxDataLen) {
                 sb += dataLine.slice(0, -1) + "\n";
@@ -835,32 +844,40 @@ Piano.prototype.generarYGuardarZxBasic = function() {
                 dataLine += dataChunk;
             }
         }
+        
         sb += dataLine.slice(0, -1) + "\n";
         linea += 10;
-        sb += linea + " DATA -1, 0\n"; // Marcador de final
-
+        sb += linea + " DATA -99, 0\n"; // Marcador de final
+        
+    // ----------------------------------------------------
+    // LÓGICA DE EXPORTACIÓN LINEA POR LINEA
+    // ----------------------------------------------------
     } else {
-        this.logToConsole("Exportando a ZX linea por linea...");
+        this.logToConsole("Exportando a ZX línea por línea (Formato BEEP/PAUSE)...");
+        var linea = 20;
+
         for (var i = 0; i < this.grabacion.length; i++) {
             var n = this.grabacion[i];
+            
             if (n.frecuencia > 0) {
                 var durSeg = n.duracionMs / 1000.0;
                 var freqHz = Math.max(20.0, n.frecuencia);
-                
                 var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-                var pitch = Math.round(semitones - 69.0); // Ajustar el pitch relativo
-
+                var pitch = Math.round(semitones - 69.0); 
                 pitch = Math.max(-60, Math.min(60, pitch)); 
 
-                sb += linea + " BEEP " + durSeg.toFixed(2) + "," + pitch + "\n"; 
+                sb += linea + " BEEP " + durSeg.toFixed(3) + "," + pitch + "\n";
             } else {
                 var durFrames = Math.round(n.duracionMs / 20.0);
-                durFrames = Math.max(1, Math.min(32767, durFrames)); 
+                // CRÍTICO: Aseguramos que la duración mínima es 1 (PAUSE 1)
+                durFrames = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames)); 
 
                 sb += linea + " PAUSE " + durFrames + "\n";
             }
             linea += 10;
         }
+
+        sb += linea + " STOP\n";
     }
 
     if (guardarArchivoComo(sb, "ZX.BAS")) {
@@ -872,9 +889,32 @@ Piano.prototype.generarYGuardarZxBasic = function() {
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (document.getElementById('log-area')) {
+    // Inicialización del Piano y manejo del checkbox de DATA/READ
+    var logArea = document.getElementById('log-area');
+    var checkbox = document.getElementById('export-data-checkbox');
+    var fileInput = document.getElementById('file-input');
+    
+    if (logArea) {
         window.piano = new Piano();
+        
+        if (checkbox) {
+            // Inicializar el estado y añadir el listener
+            piano.setExportAsData(checkbox.checked);
+            checkbox.addEventListener('change', function() {
+                piano.setExportAsData(this.checked);
+            });
+        }
+
+        // Manejar la carga de archivos MUS
+        if (fileInput) {
+            fileInput.addEventListener('change', function() {
+                piano.cargarMelodiaDesdeInput(this.files);
+            });
+        }
+
     } else {
         console.error("El elemento con id 'log-area' es necesario para inicializar el piano.");
+        // Si no hay log-area, inicializar sin UI para pruebas de consola
+        if (!window.piano) window.piano = new Piano(); 
     }
 });
