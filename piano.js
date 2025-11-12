@@ -620,6 +620,11 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
 
     var sb = "10 REM MELOD8 by fitosoft AMSTRAD CPC BASIC\n"; 
     var linea = 20;
+    const fileName = "cpc.bas"; 
+    
+    // --- NUEVA CONSTANTE ---
+    const PAIRS_PER_DATA_LINE = 10;
+    // -----------------------
 
     if (this.exportAsData) {
         this.logToConsole("Exportando a CPC con DATA/READ...");
@@ -633,11 +638,12 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
         sb += "60 IF D(1) = -1 THEN END: REM Final de datos\n";
         sb += "70 SOUND 2,D(1),D(2)\n";
         sb += "80 NEXT I\n";
-        sb += "90 END\n";
-        linea = LINEA_DATA_INICIO;
         
-        var dataLine = linea + " DATA ";
-        var maxDataLen = 200;
+        // La línea actual 'linea' se usará para rastrear el inicio de las líneas DATA
+        let dataLineNumber = LINEA_DATA_INICIO;
+        
+        let currentDataLine = dataLineNumber + " DATA ";
+        let pairCount = 0; // Contador de parejas en la línea actual
 
         for (var i = 0; i < this.grabacion.length; i++) {
             var n = this.grabacion[i];
@@ -645,28 +651,57 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
             
             var pitch = 0;
             if (n.frecuencia > 0) {
+                // Cálculo del Pitch CPC
                 pitch = Math.round(62500.0 / n.frecuencia);
                 pitch = Math.max(1, Math.min(4095, pitch)); 
             } else {
-                pitch = 1; // Un pitch bajo para SOUND 2,1,Dur: silencio
+                pitch = 1; // Un pitch bajo para SOUND 2,1,Dur: silencio (pausa)
             }
             
             var dataChunk = pitch + "," + durEsc + ",";
 
-            if ((dataLine + dataChunk).length > maxDataLen) {
-                sb += dataLine.slice(0, -1) + "\n";
-                linea += 10;
-                dataLine = linea + " DATA " + dataChunk;
-            } else {
-                dataLine += dataChunk;
+            // Control de límite de parejas (10)
+            if (pairCount >= PAIRS_PER_DATA_LINE) {
+                // Terminar la línea DATA anterior y añadirla a sb
+                sb += currentDataLine.slice(0, -1) + "\n";
+                
+                // Mover el número de línea al siguiente ordinal
+                dataLineNumber += 10; 
+                
+                // Empezar una nueva línea DATA
+                currentDataLine = dataLineNumber + " DATA ";
+                pairCount = 0;
             }
+            
+            currentDataLine += dataChunk;
+            pairCount++;
         }
-        sb += dataLine.slice(0, -1) + "\n";
-        linea += 10;
-        sb += linea + " DATA -1, 0\n"; // Marcador de final
         
+        // Agregar la última línea DATA si tiene contenido
+        if (pairCount > 0) {
+            sb += currentDataLine.slice(0, -1) + "\n";
+            dataLineNumber += 10;
+        }
+
+        // Marcador de final
+        sb += dataLineNumber + " DATA -1, 0\n"; 
+        
+        // Usamos la última línea generada para calcular el inicio del código final
+        linea = dataLineNumber + 10;
+        
+        // --- CÓDIGO DE ESPERA DE TECLA ---
+        sb += linea + " PRINT\"pulsa una tecla\"\n";
+        linea += 10;
+        sb += linea + " WHILE INKEY$=\"\":WEND\n"; 
+        linea += 10;
+        sb += linea + " END\n"; 
+
     } else {
         this.logToConsole("Exportando a CPC linea por linea...");
+        
+        // El número de línea inicial para este bloque es 20
+        linea = 20;
+        
         for (var i = 0; i < this.grabacion.length; i++) {
             var n = this.grabacion[i];
             var durEsc = Math.max(1, Math.round(n.duracionMs / 10.0)); 
@@ -680,11 +715,17 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
             }
             linea += 10;
         }
-        sb += linea + " END\n";
+        
+        // --- CÓDIGO DE ESPERA DE TECLA ---
+        sb += linea + " PRINT\"pulsa una tecla\"\n";
+        linea += 10;
+        sb += linea + " WHILE INKEY$=\"\":WEND\n"; 
+        linea += 10;
+        sb += linea + " END\n"; 
     }
 
-    if (guardarArchivoComo(sb, "cpc.bas")) {
-        this.logToConsole("Archivo cpc.bas generado correctamente (Ajuste de duracion CPC aplicado).");
+    if (guardarArchivoComo(sb, fileName)) {
+        this.logToConsole("Preparando para guardar archivo basic para Amstrad CPC"); 
     } else {
         this.logToConsole("ERROR exportando Amstrad. Revisa la consola del navegador.");
     }
@@ -696,197 +737,217 @@ Piano.prototype.generarYGuardarPbString = function() {
     if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
     
     var FILENAME = "MELOD8.BAS";
-    var sb = "10 REM MELOD8 by fitosoft POWERBASIC EXPORT\n"; 
+    var sb = "10 REM MELOD8 by fitosoft POWERBASIC EXPORT\n";    
     var linea = 20;
-    var play = "T255"; 
-    var duracionL1Ms = 900.0; 
+    var play = "T255";    
+    var duracionL1Ms = 900.0;    
 
+    // --- 1. GENERACIÓN DEL STRING PLAY COMPLETO ---
     for (var i = 0; i < this.grabacion.length; i++) {
         var n = this.grabacion[i];
+        
+        // Cálculo del factor de duración L
         var pb_L_factor = Math.round(duracionL1Ms / n.duracionMs);
         pb_L_factor = Math.max(1, Math.min(64, pb_L_factor));
 
         play += "L" + pb_L_factor;
 
         if (n.frecuencia > 0) {
+            // Cálculo de la nota MIDI y conversión a nota PB
             var freqHz = Math.max(20.0, n.frecuencia);
             var midiNote = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-            var pbNote = Math.round(midiNote - 36.0); 
+            var pbNote = Math.round(midiNote - 36.0);    
 
             pbNote = Math.max(1, Math.min(84, pbNote));
             
             play += "N" + pbNote;
         } else {
-            play += "P"; 
+            // Pausa
+            play += "P";    
         }
     }
 
-    if (this.exportAsData) {
-        this.logToConsole("Exportando a PowerBASIC con DATA/READ...");
-        
-        const LINEA_DATA_INICIO = 100;
+    // --- 2. EXPORTACIÓN SIEMPRE CON LÍNEAS (Bloque 'else' del original) ---
+    this.logToConsole("Exportando a PowerBASIC por líneas (PLAY string).");
+    
+    var maxLen = 70;    
+    var idx = 0;
+    var firstPart = true;
 
-        // El PowerBASIC ya usa un string compacto, solo lo ponemos en DATA
-        sb += "20 REM Inicializacion de reproduccion\n";
-        sb += "30 RESTORE " + LINEA_DATA_INICIO + "\n";
-        sb += "40 READ M$: REM M$ contiene el string PLAY\n";
-        sb += "50 PLAY M$\n";
-        sb += "60 END\n";
-        linea = LINEA_DATA_INICIO;
-
-        var partPlay = play;
+    while (idx < play.length) {
+        var len = Math.min(maxLen, play.length - idx);
+        var part = play.substring(idx, idx + len);
         
-        sb += linea + " DATA \"" + partPlay + "\"\n";
+        // Ajuste para no cortar un comando N, L o P a la mitad
+        // Busca el inicio de un comando al final de la parte
+        var lastCommandStart = part.search(/[LNP]\d*$/); 
         
-    } else {
-        this.logToConsole("Exportando a PowerBASIC linea por linea...");
-        var maxLen = 70; 
-        var idx = 0;
-        var firstPart = true;
-
-        while (idx < play.length) {
-            var len = Math.min(maxLen, play.length - idx);
-            var part = play.substring(idx, idx + len);
-            
-            var lastCommandEnd = part.search(/[LNP]\d+$/);
-            if (lastCommandEnd > -1 && lastCommandEnd > 0) {
-                len = lastCommandEnd;
-                part = play.substring(idx, idx + len);
-            }
-            
-            if (firstPart) {
-                sb += linea + " M$ = \"" + part + "\"\n";
-                firstPart = false;
-            } else {
-                sb += linea + " M$ = M$ + \"" + part + "\"\n";
-            }
-            idx += len;
-            linea += 10; 
+        if (lastCommandStart > 0 && (idx + lastCommandStart) < play.length) {
+             // Si encontramos un comando incompleto al final, acortamos la parte hasta justo antes.
+            len = lastCommandStart;
+            part = play.substring(idx, idx + len);
+        } else if (lastCommandStart === 0 && !firstPart) {
+             // Si la línea empieza con un comando (ej: L64N60...), no la cortamos.
+             // Esto se maneja automáticamente si la longitud es menor que maxLen.
         }
-
-        sb += linea + " PLAY M$\n";
-        linea += 10;
-        sb += linea + " END\n";
+        
+        if (firstPart) {
+            sb += linea + " M$ = \"" + part + "\"\n";
+            firstPart = false;
+        } else {
+            sb += linea + " M$ = M$ + \"" + part + "\"\n";
+        }
+        idx += part.length; // Usamos part.length para la longitud real después del ajuste
+        linea += 10;    
     }
 
+    sb += linea + " PLAY M$\n";
+    linea += 10;
+    
+    // --- Espera de tecla para que no termine la ejecución instantáneamente (OPCIONAL) ---
+    sb += linea + " PRINT \"Pulsa una tecla para finalizar...\"\n";
+    linea += 10;
+    sb += linea + " WHILE INKEY$=\"\":WEND\n";
+    linea += 10;
+    // ------------------------------------------------------------------------------------
+
+    sb += linea + " END\n";
+
+
+    // --- 3. MENSAJE FINAL ESTANDARIZADO ---
     if (guardarArchivoComo(sb, FILENAME)) {
-        this.logToConsole("Archivo " + FILENAME + " generado correctamente (Ajustes de tempo y tono PowerBASIC).");
+        this.logToConsole("Preparando para guardar archivo basic para PowerBasic");
     } else {
         this.logToConsole("ERROR exportando PowerBASIC. Revisa la consola del navegador.");
     }
 };
 
-/**
- * Función CORREGIDA y OPTIMIZADA para ZX Spectrum.
- * Ahora los bloques DATA inician en la línea 90 (inmediatamente después del programa principal).
- */
 Piano.prototype.generarYGuardarZxBasic = function() {
     this.eliminarPausasFinales();
-    
-    if (this.grabacion.length === 0) { this.logToConsole("No hay notas para exportar."); return; }
 
-    var sb = "10 REM MELOD8 by fitosoft ZX BASIC\n"; 
+    if (this.grabacion.length === 0) {
+        this.logToConsole("No hay notas para exportar.");
+        return;
+    }
+
+    var sb = "10 REM MELOD8 by fitosoft ZX BASIC\n";
+
+    const LINEA_PROGRAMA_INICIO = 20;   // Línea donde comienza el programa principal
+    const LINEA_DATA_INICIO = 90;       // Línea donde comienzan los datos
+    const LINEA_FIN = 1000;             // Línea para STOP (si es necesario)
+    const MAX_FRAME_DURATION = 32767;
+    const PAIRS_PER_LINE = 8;         // Número de pares por línea DATA
+    const PAUSE_DATA_MARKER = 99;     // <--- Marcador clave para la PAUSA (99)
+
+    // Inicialización de variables importantes
+    let dataLineNumber = LINEA_DATA_INICIO;
+    let programLineNumber = LINEA_PROGRAMA_INICIO;
     
-    // CRÍTICO: Establecemos la línea de inicio de DATA después de la línea 80.
-    const LINEA_PROGRAMA_FINAL = 80;
-    const LINEA_DATA_INICIO = LINEA_PROGRAMA_FINAL + 10; // Resulta en 90
-    var MAX_FRAME_DURATION = 32767;
+    // Nombre del archivo de exportación (usado para el log)
+    const fileName = "ZX.BAS";
 
     // ----------------------------------------------------
     // LÓGICA DE EXPORTACIÓN DATA/READ (Compacto y Rápido)
     // ----------------------------------------------------
     if (this.exportAsData) {
-        this.logToConsole("Exportando a ZX con DATA/READ (Datos pre-calculados - Optimo) a partir de línea " + LINEA_DATA_INICIO + "...");
-        
-        sb += "20 REM Inicializacion de reproduccion\n";
-        sb += "30 RESTORE " + LINEA_DATA_INICIO + "\n"; // Usa RESTORE 90
-        sb += "40 READ P, D\n";
-        sb += "50 IF P = -99 THEN STOP: REM Final de datos\n";
-        sb += "60 IF P <> 0 THEN BEEP D, P: GOTO 40\n";
-        sb += "70 IF P = 0 THEN PAUSE D: GOTO 40\n"; // D es ya >= 1 (corrección PAUSE)
-        sb += "80 GOTO 40\n";
-        
-        var linea = LINEA_DATA_INICIO; // Empezamos a generar los DATA aquí (90)
-        var dataLine = linea + " DATA ";
-        var maxDataLen = 200;
+        this.logToConsole("Exportando a ZX con DATA/READ dinámico (8 pares por línea)...");
 
-        for (var i = 0; i < this.grabacion.length; i++) {
-            var n = this.grabacion[i];
-            
-            var P = 0; // Pitch (0 para pausa)
-            var D = 0; // Duración (Segundos para BEEP, Frames para PAUSE)
+        // Programa principal con GOTO dinámico
+        sb += programLineNumber + " REM Inicializacion de reproduccion\n"; // 20
+        programLineNumber += 10;
+        sb += programLineNumber + " RESTORE " + LINEA_DATA_INICIO + "\n"; // 30
+        programLineNumber += 10;
+        sb += programLineNumber + " READ P, D\n"; // 40 (PUNTO DE RETORNO)
+        programLineNumber += 10;
+        sb += programLineNumber + " IF P = -99 THEN STOP: REM Final de datos\n"; // 50
+        programLineNumber += 10;
+        // Línea 60: Si es PAUSA (99), hace PAUSE y vuelve a 40 (READ)
+        sb += programLineNumber + " IF P = " + PAUSE_DATA_MARKER + " THEN PAUSE D: GOTO " + (programLineNumber - 20) + "\n"; // 60 (GOTO 40)
+        programLineNumber += 10;
+        // Línea 70: Si es nota, hace BEEP y vuelve a 40 (READ)
+        sb += programLineNumber + " BEEP D, P: GOTO " + (programLineNumber - 30) + "\n"; // 70 (GOTO 40)
+        programLineNumber += 10;
+        sb += programLineNumber + " REM Continuar\n"; // 80
+
+        // Generación de líneas DATA
+        let currentDataLine = dataLineNumber + " DATA ";
+        let pairCount = 0;
+
+        for (let i = 0; i < this.grabacion.length; i++) {
+            const n = this.grabacion[i];
+            let P = 0;  // Pitch (99 para pausa)
+            let D = 0;  // Duración
 
             if (n.frecuencia > 0) {
-                // Pre-cálculo para BEEP
-                var durSeg = n.duracionMs / 1000.0;
-                var freqHz = Math.max(20.0, n.frecuencia);
-                
-                var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-                P = Math.round(semitones - 69.0); // Pitch relativo
-                
-                P = Math.max(-60, Math.min(60, P)); 
-                D = durSeg.toFixed(3); // Duración en segundos (3 decimales).
+                // Cálculo para BEEP (Nota)
+                let durSeg = n.duracionMs / 1000.0;
+                let freqHz = Math.max(20.0, n.frecuencia);
+                let semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
+                P = Math.round(semitones - 69.0);
+                P = Math.max(-60, Math.min(60, P));
+                D = durSeg.toFixed(3);
             } else {
-                // Pre-cálculo para PAUSE
-                P = 0; // Flag de pausa
-                var durFrames = Math.round(n.duracionMs / 20.0);
-                // CRÍTICO: Aseguramos que la duración mínima es 1 (PAUSE 1)
-                D = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames)); 
+                // Cálculo para PAUSE 
+                // *** P ahora es 99 (PAUSE_DATA_MARKER) ***
+                P = PAUSE_DATA_MARKER; 
+                let durFrames = Math.round(n.duracionMs / 20.0);
+                D = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
             }
-            
-            var dataChunk = P + "," + D + ",";
 
-            if ((dataLine + dataChunk).length > maxDataLen) {
-                sb += dataLine.slice(0, -1) + "\n";
-                linea += 10;
-                dataLine = linea + " DATA " + dataChunk;
-            } else {
-                dataLine += dataChunk;
+            const dataChunk = P + "," + D + ",";
+            currentDataLine += dataChunk;
+            pairCount++;
+
+            if (pairCount === PAIRS_PER_LINE) {
+                // Eliminar la coma final y agregar la línea DATA
+                sb += currentDataLine.slice(0, -1) + "\n";
+                dataLineNumber += 10;
+                currentDataLine = dataLineNumber + " DATA ";
+                pairCount = 0;
             }
         }
-        
-        sb += dataLine.slice(0, -1) + "\n";
-        linea += 10;
-        sb += linea + " DATA -99, 0\n"; // Marcador de final
-        
-    // ----------------------------------------------------
-    // LÓGICA DE EXPORTACIÓN LINEA POR LINEA
-    // ----------------------------------------------------
-    } else {
-        this.logToConsole("Exportando a ZX línea por línea (Formato BEEP/PAUSE)...");
-        var linea = 20;
 
-        for (var i = 0; i < this.grabacion.length; i++) {
-            var n = this.grabacion[i];
+        // Agregar la última línea DATA si no está completa
+        if (pairCount > 0) {
+            sb += currentDataLine.slice(0, -1) + "\n";
+            dataLineNumber += 10;
+        }
+
+        // Marcador de final
+        sb += dataLineNumber + " DATA -99,0\n";
             
-            if (n.frecuencia > 0) {
-                var durSeg = n.duracionMs / 1000.0;
-                var freqHz = Math.max(20.0, n.frecuencia);
-                var semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-                var pitch = Math.round(semitones - 69.0); 
-                pitch = Math.max(-60, Math.min(60, pitch)); 
+    } else {
+        // Lógica de exportación línea por línea (sin cambios)
+        this.logToConsole("Exportando a ZX línea por línea (Formato BEEP/PAUSE)...");
+        let linea = LINEA_PROGRAMA_INICIO;
 
+        for (let i = 0; i < this.grabacion.length; i++) {
+            const n = this.grabacion[i];
+
+            if (n.frecuencia > 0) {
+                const durSeg = n.duracionMs / 1000.0;
+                const freqHz = Math.max(20.0, n.frecuencia);
+                const semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
+                const pitch = Math.round(semitones - 69.0);
                 sb += linea + " BEEP " + durSeg.toFixed(3) + "," + pitch + "\n";
             } else {
-                var durFrames = Math.round(n.duracionMs / 20.0);
-                // CRÍTICO: Aseguramos que la duración mínima es 1 (PAUSE 1)
-                durFrames = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames)); 
-
+                let durFrames = Math.round(n.duracionMs / 20.0);
+                durFrames = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
                 sb += linea + " PAUSE " + durFrames + "\n";
             }
             linea += 10;
         }
-
-        sb += linea + " STOP\n";
     }
+    // Fin del código principal
+    sb += LINEA_FIN + " STOP\n";
 
-    if (guardarArchivoComo(sb, "ZX.BAS")) {
-        this.logToConsole("Archivo ZX.BAS generado correctamente.");
+    // Muestra el nombre real del archivo exportado
+    if (guardarArchivoComo(sb, fileName)) {
+        this.logToConsole("Archivo " + fileName + " generado correctamente.");
     } else {
         this.logToConsole("ERROR exportando ZX Spectrum. Revisa la consola del navegador.");
     }
 };
-
 
 document.addEventListener('DOMContentLoaded', function() {
     // Inicialización del Piano y manejo del checkbox de DATA/READ
