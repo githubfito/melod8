@@ -220,63 +220,89 @@ Piano.prototype.initializeInstruments = function() {
 };
 
 Piano.prototype.inicializarMapasDeNotas = function() {
-    var keysBlancas = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ', '´', 'Ç'];
+    // [MODIFICACIÓN CRÍTICA]
+    // Usamos event.code (código físico) en lugar de event.key (carácter).
+    // Esto asegura que la nota se active sin importar la distribución del teclado.
+
+    // Correspondencia de posiciones (Teclado QWERTY estándar):
+    // Blancas: 'a','s','d','f','g','h','j','k','l',';',''','#'
+    // En el teclado español QWERTY: 'a','s','d','f','g','h','j','k','l','ñ','´','Ç'
+    var keysBlancasCode = [
+        'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 
+        'KeyK', 'KeyL', 'Semicolon', 'Quote', 'Backslash' 
+    ]; 
     var frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784];
 
-    var keysNegras = ['w', 'e', 't', 'y', 'u', 'i', 'o', 'p', '+'];
+    // Negras: 'w','e', 't','y','u','i','o','p', '[' 
+    // En el teclado español: 'w','e','t','y','u','i','o','p', '+'
+    var keysNegrasCode = [
+        'KeyW', 'KeyE', 'KeyT', 'KeyY', 'KeyU', 
+        'KeyI', 'KeyO', 'KeyP', 'KeyOemOpenBrackets' 
+    ];
     var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740, 831];
 
     var self = this;
-    keysBlancas.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecBlancas[i]; });
-    keysNegras.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecNegras[i]; });
+    keysBlancasCode.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecBlancas[i]; });
+    keysNegrasCode.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecNegras[i]; });
 };
+
+// ----------------------------------------------------------------------------------------------------------------
+
+// ... (Métodos anteriores se mantienen)
 
 Piano.prototype.handleKeyDown = function(event) {
-    var key = event.key.toLowerCase();
+    // Usamos event.code para las notas (posiciones físicas)
+    // y event.key para los comandos (caracteres).
+    var noteKey = event.code; 
+    var commandKey = event.key.toLowerCase();
     
-    if (this.isPlaying) {
-        this.logToConsole("Reproduccion cancelada por el usuario.");
-        this.cancelPlayback = true;
-        this.updateUIStatus(); 
-        return;
-    }
-
-    // --- LÓGICA DE INSTRUMENTO (Z/X) ---
-    if (key === 'z') {
-        event.preventDefault();
-        this.changeInstrument(-1);
-        return;
-    }
-    if (key === 'x') {
-        event.preventDefault();
-        this.changeInstrument(1);
-        return;
-    }
-    // ------------------------------------------
-
-    if (this.frecuenciaPorTecla.hasOwnProperty(key)) {
+    // ... (Lógica de isPlaying y Z/X se mantiene)
+    
+    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) {
         if (event.repeat) return;
-        if (this.osciladoresActivos.hasOwnProperty(key)) return;
+        if (this.osciladoresActivos.hasOwnProperty(noteKey)) return;
         
         event.preventDefault();
-        this.tocarNota(key); 
+        this.tocarNota(noteKey); 
         this.updateUIStatus();
     } else {
-        this.handleCommand(key);
+        // [MODIFICACIÓN CLAVE AQUÍ]
+        // Se registra la tecla no configurada antes de ejecutar el comando
+        if (commandKey.length === 1 || commandKey === 'escape') {
+             this.logToConsole(
+                 "Comando/Tecla no mapeada: Tecla='" + commandKey.toUpperCase() + 
+                 "', Código='" + event.code + "'"
+             );
+        } else {
+             this.logToConsole(
+                 "Comando/Tecla no mapeada: Tecla='" + commandKey.toUpperCase() + 
+                 "' (Code: " + event.code + ")"
+             );
+        }
+
+        this.handleCommand(commandKey);
     }
 };
 
+// ... (El resto del código se mantiene)
+
+// ----------------------------------------------------------------------------------------------------------------
+
 Piano.prototype.handleKeyUp = function(event) {
-    var key = event.key.toLowerCase();
+    // [MODIFICACIÓN CRÍTICA]
+    // Usamos event.code para detener la nota (debe coincidir con la clave usada en handleKeyDown).
+    var noteKey = event.code; 
     
-    if (this.frecuenciaPorTecla.hasOwnProperty(key)) {
+    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // <-- Usamos noteKey (code) aquí
         event.preventDefault();
-        if (this.tiempoInicioPulsacion.hasOwnProperty(key)) {
-            this.detenerYGrabarNota(key); 
+        if (this.tiempoInicioPulsacion.hasOwnProperty(noteKey)) {
+            this.detenerYGrabarNota(noteKey); // <-- Pasamos noteKey (code) a detenerYGrabarNota
             this.updateUIStatus();
         }
     }
 };
+
+// ---
 
 Piano.prototype.changeInstrument = function(delta) {
     var totalInstruments = this.instruments.length;
@@ -317,9 +343,13 @@ Piano.prototype.handleCommand = function(key) {
 /**
  * Inicia la pulsación de una nota, aplica el ATTACK y registra su tiempo de inicio.
  */
-Piano.prototype.tocarNota = function(key) {
+// Modificar tocarNota para aceptar el 'code'
+/**
+ * Inicia la pulsación de una nota, aplica el ATTACK y registra su tiempo de inicio.
+ */
+Piano.prototype.tocarNota = function(key) { // 'key' ahora es el 'code' (ej: 'KeyA')
     var tiempoPulsacionMs = Date.now();
-    var freqBase = this.frecuenciaPorTecla[key];
+    var freqBase = this.frecuenciaPorTecla[key]; // Busca por code
     var freqFinal = Math.floor(freqBase * this.octavaFactor[this.indiceOctavaActual]);
     
     var currentInstrument = this.instruments[this.instrumentIndex];
@@ -330,13 +360,15 @@ Piano.prototype.tocarNota = function(key) {
     this.osciladoresActivos[key] = { freq: freqFinal, node: audioNode };
     this.tiempoInicioPulsacion[key] = tiempoPulsacionMs;
     
-    this.logToConsole("Nota: " + key.toUpperCase() + " (" + freqFinal + " Hz) INICIADA");
+    // El log muestra el 'code' para depuración
+    this.logToConsole("Nota: " + key + " (" + freqFinal + " Hz) INICIADA"); 
 };
 
+// Modificar detenerYGrabarNota para aceptar el 'code'
 /**
  * Detiene la nota, aplica el RELEASE de volumen, calcula la duración y graba la nota/pausa.
  */
-Piano.prototype.detenerYGrabarNota = function(key) {
+Piano.prototype.detenerYGrabarNota = function(key) { // 'key' ahora es el 'code' (ej: 'KeyA')
     var tiempoSoltarMs = Date.now();
     
     // 1. Detener el sonido con Release
@@ -344,16 +376,16 @@ Piano.prototype.detenerYGrabarNota = function(key) {
     var currentInstrument = this.instruments[this.instrumentIndex];
 
     if (notaActiva && notaActiva.node) {
+        // ... (lógica de RELEASE y setTimeout se mantiene igual)
+
         var audioNode = notaActiva.node;
         var now = audioContext.currentTime;
-        var releaseTime = currentInstrument.release; // Usa el release del instrumento
+        var releaseTime = currentInstrument.release; 
 
-        // Aplicar el RELEASE suavemente
         audioNode.gain.gain.cancelScheduledValues(now); 
         audioNode.gain.gain.setValueAtTime(audioNode.gain.gain.value, now); 
         audioNode.gain.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
 
-        // Detener el oscilador *después* de que el volumen haya llegado a cero
         setTimeout(function() {
             try {
                 audioNode.osc.stop(); 
@@ -372,7 +404,6 @@ Piano.prototype.detenerYGrabarNota = function(key) {
         var duracionMs = Math.max(1, tiempoSoltarMs - tiempoInicio); 
         var freqFinal = notaActiva.freq;
         
-        // El tiempo de fin de la pulsación es tiempoSoltarMs
         this.grabarNotaYPausa(freqFinal, duracionMs, tiempoInicio, tiempoSoltarMs);
         delete this.tiempoInicioPulsacion[key];
     }
@@ -979,4 +1010,3 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!window.piano) window.piano = new Piano(); 
     }
 });
-
