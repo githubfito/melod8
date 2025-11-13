@@ -252,22 +252,44 @@ Piano.prototype.inicializarMapasDeNotas = function() {
 
 Piano.prototype.handleKeyDown = function(event) {
     // Usamos event.code para las notas (posiciones físicas)
-    // y event.key para los comandos (caracteres).
     var noteKey = event.code; 
+    // Usamos event.key para los comandos (caracteres)
     var commandKey = event.key.toLowerCase();
     
-    // ... (Lógica de isPlaying y Z/X se mantiene)
-    
-    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) {
+    if (this.isPlaying) {
+        // --- CORRECCIÓN CRÍTICA: DETENCIÓN INMEDIATA ---
+        this.cancelPlayback = true; 
+        this.isPlaying = false; // Permite que la siguiente pulsación sea una nota/comando normal
+        
+        this.logToConsole("Reproduccion cancelada por el usuario.");
+        this.updateUIStatus(); 
+        
+        event.preventDefault(); 
+        return; 
+    }
+
+    // --- LÓGICA DE INSTRUMENTO (Z/X) ---
+    if (commandKey === 'z') {
+        event.preventDefault();
+        this.changeInstrument(-1);
+        return;
+    }
+    if (commandKey === 'x') {
+        event.preventDefault();
+        this.changeInstrument(1);
+        return;
+    }
+    // ------------------------------------------
+
+    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // Busca la nota por el CÓDIGO de tecla
         if (event.repeat) return;
         if (this.osciladoresActivos.hasOwnProperty(noteKey)) return;
         
         event.preventDefault();
-        this.tocarNota(noteKey); 
+        this.tocarNota(noteKey); // Pasa el CÓDIGO
         this.updateUIStatus();
     } else {
-        // [MODIFICACIÓN CLAVE AQUÍ]
-        // Se registra la tecla no configurada antes de ejecutar el comando
+        // --- REGISTRO DE TECLAS NO MAPEADAS COMO NOTAS ---
         if (commandKey.length === 1 || commandKey === 'escape') {
              this.logToConsole(
                  "Comando/Tecla no mapeada: Tecla='" + commandKey.toUpperCase() + 
@@ -279,7 +301,8 @@ Piano.prototype.handleKeyDown = function(event) {
                  "' (Code: " + event.code + ")"
              );
         }
-
+        
+        // Procesar el comando (usa el carácter de la tecla: commandKey)
         this.handleCommand(commandKey);
     }
 };
