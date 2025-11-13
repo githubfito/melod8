@@ -220,11 +220,11 @@ Piano.prototype.initializeInstruments = function() {
 };
 
 Piano.prototype.inicializarMapasDeNotas = function() {
-    var keysBlancas = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ', 'º', '-', 'ç'];
-    var frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784, 880];
+    var keysBlancas = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', 'ñ', '´', 'Ç'];
+    var frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784];
 
-    var keysNegras = ['w', 'e', 't', 'y', 'u', 'i', 'o', 'p', '[', ']'];
-    var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740, 831, 932];
+    var keysNegras = ['w', 'e', 't', 'y', 'u', 'i', 'o', 'p', '+'];
+    var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740, 831];
 
     var self = this;
     keysBlancas.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecBlancas[i]; });
@@ -979,3 +979,4 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!window.piano) window.piano = new Piano(); 
     }
 });
+
