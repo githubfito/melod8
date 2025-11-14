@@ -2,64 +2,44 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🎹 Melod8 - Piano Virtual y Exportador BASIC</title>
-    <link rel="stylesheet" href="style.css">
+    <title>MelodEight Web Piano</title>
+    <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
 
-    <h1>🎹 Melod8 - Piano Virtual y Exportador BASIC</h1>
+    <h1>MELOD8 Web Piano</h1>
 
-    <div id="status-panel">
-        <p>Instrumento: <span id="instrument-name">Piano Clásico</span> (Z/X)</p>
-        <p>Octava: <span id="octave-factor">x1.00</span> (,/.)</p>
-        <p>Notas Grabadas: <span id="note-count">0</span> (0 para borrar)</p>
-        <p>Archivo: <span id="file-name">CANCION.MUS</span> (1/2 para Cargar/Guardar)</p>
-    </div>
-
-    <div id="export-controls">
-        <label>
-            <input type="checkbox" id="export-data-checkbox" checked>
-            Exportar como DATA/READ (Más compacto)
-        </label>
-        <p>Exportar a BASIC: [4] Amstrad CPC | [5] PowerBASIC | [6] ZX Spectrum</p>
-    </div>
-
-    <div id="piano-teclado">
-        <div data-code="KeyW" class="tecla negra">W</div>
-        <div data-code="KeyE" class="tecla negra" style="left: 85px;">E</div>
-        
-        <div data-code="KeyT" class="tecla negra" style="left: 185px;">T</div>
-        <div data-code="KeyY" class="tecla negra" style="left: 235px;">Y</div>
-        <div data-code="KeyU" class="tecla negra" style="left: 285px;">U</div>
-        
-        <div data-code="KeyI" class="tecla negra" style="left: 385px;">I</div>
-        <div data-code="KeyO" class="tecla negra" style="left: 435px;">O</div>
-        <div data-code="KeyP" class="tecla negra" style="left: 485px;">P</div>
-        <div data-code="OemOpenBrackets" class="tecla negra" style="left: 535px;">[</div>
-
-        <div data-code="KeyA" class="tecla blanca" style="left: 0px;">A</div>
-        <div data-code="KeyS" class="tecla blanca" style="left: 50px;">S</div>
-        <div data-code="KeyD" class="tecla blanca" style="left: 100px;">D</div>
-        <div data-code="KeyF" class="tecla blanca" style="left: 150px;">F</div>
-        <div data-code="KeyG" class="tecla blanca" style="left: 200px;">G</div>
-        <div data-code="KeyH" class="tecla blanca" style="left: 250px;">H</div>
-        <div data-code="KeyJ" class="tecla blanca" style="left: 300px;">J</div>
-        <div data-code="KeyK" class="tecla blanca" style="left: 350px;">K</div>
-        <div data-code="KeyL" class="tecla blanca" style="left: 400px;">L</div>
-        <div data-code="Semicolon" class="tecla blanca" style="left: 450px;">Ñ/;</div>
-        <div data-code="Quote" class="tecla blanca" style="left: 500px;">´/'</div>
-        <div data-code="Backslash" class="tecla blanca" style="left: 550px;">Ç/\</div>
+    <div id="status-line">
+        Octava: <span id="octave-factor">x1.00</span> | Notas: <span id="note-count">0</span> | Duración: <span id="duration-ms">150</span> ms | Archivo: <span id="file-name">CANCION.MUS</span>
     </div>
     
-    <p>Presiona [M] para ver la ayuda completa.</p>
-
-    <div id="log-container">
-        <textarea id="log-area" readonly rows="15"></textarea>
+    <div id="keyboard-guide">
+        <h3>Teclado (A, S, D... / W, E, T...)</h3>
+        <p>A S D F G H J K L Ñ º - Ç (Blancas)</p>
+        <p>W E T Y U I O P [ ] (Negras)</p>
     </div>
 
-    <input type="file" id="file-input" accept=".mus" style="display: none;">
+    <div id="controls">
+        <button onclick="piano.handleCommand('0')">[0] Borrar</button>
+        <button onclick="piano.handleCommand('1')">[1] Cargar (.MUS)</button>
+        <button onclick="piano.handleCommand('2')">[2] Guardar (.MUS)</button>
+        <button onclick="piano.handleCommand('3')">[3] Reproducir</button>
+        <button onclick="piano.handleCommand('4')">[4] CPC BASIC</button>
+        <button onclick="piano.handleCommand('5')">[5] PB BASIC</button>
+        <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
+        <button onclick="piano.handleCommand(',')">[ , ] Octava -</button>
+        <button onclick="piano.handleCommand('.')">[ . ] Octava +</button>
+        <button onclick="piano.handleCommand('m')">[M] Ayuda</button>
+        <input type="checkbox" id="export-as-data" onchange="window.piano.setExportAsData(this.checked)">
+        <label for="export-as-data">Exportar como DATA</label>
+    </div>
 
-    <script src="script.js"></script>
+    <input type="file" id="file-input" accept=".mus" style="display:none;" onchange="window.piano.cargarMelodiaDesdeInput(this.files)">
+
+    <h2>Log del Sistema</h2>
+    <pre id="log-area"></pre>
+
+    <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.js"></script>
+    <script src="piano.js"></script> 
 </body>
 </html>
