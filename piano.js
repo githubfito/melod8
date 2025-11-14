@@ -117,6 +117,9 @@ function guardarArchivoComo(contenido, nombreArchivo) {
 
 function Piano() {
     this.frecuenciaPorTecla = {};
+    // INICIO CAMBIO 1: Nuevo mapa para la reproducción visual
+    this.frecuenciaBasePorCode = {}; 
+    // FIN CAMBIO 1
     this.grabacion = []; 
     this.octavaFactor = [0.25, 0.5, 1.0, 2.0, 4.0];
     this.indiceOctavaActual = 2; 
@@ -242,13 +245,37 @@ Piano.prototype.inicializarMapasDeNotas = function() {
     var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740, 831];
 
     var self = this;
-    keysBlancasCode.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecBlancas[i]; });
-    keysNegrasCode.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecNegras[i]; });
+    
+    // Mapeo normal (Code -> Frecuencia)
+    keysBlancasCode.forEach(function(key, i) { 
+        self.frecuenciaPorTecla[key] = frecBlancas[i]; 
+        // INICIO CAMBIO 2: Mapeo inverso (Frecuencia Base -> Code)
+        self.frecuenciaBasePorCode[frecBlancas[i]] = key;
+        // FIN CAMBIO 2
+    });
+    
+    keysNegrasCode.forEach(function(key, i) { 
+        self.frecuenciaPorTecla[key] = frecNegras[i]; 
+        // INICIO CAMBIO 2: Mapeo inverso (Frecuencia Base -> Code)
+        self.frecuenciaBasePorCode[frecNegras[i]] = key;
+        // FIN CAMBIO 2
+    });
 };
 
 // ----------------------------------------------------------------------------------------------------------------
 
 // ... (Métodos anteriores se mantienen)
+
+/**
+ * NUEVO: Limpia el estado visual de todas las teclas virtuales.
+ */
+Piano.prototype.clearAllKeyVisuals = function() {
+    var pressedKeys = document.querySelectorAll('#keyboard .key.pressed');
+    pressedKeys.forEach(function(keyElement) {
+        keyElement.classList.remove('pressed');
+    });
+};
+
 
 Piano.prototype.handleKeyDown = function(event) {
     // Usamos event.code para las notas (posiciones físicas)
@@ -260,6 +287,10 @@ Piano.prototype.handleKeyDown = function(event) {
         // --- CORRECCIÓN CRÍTICA: DETENCIÓN INMEDIATA ---
         this.cancelPlayback = true; 
         this.isPlaying = false; // Permite que la siguiente pulsación sea una nota/comando normal
+        
+        // INICIO CAMBIO 3: Limpiar teclas al cancelar
+        this.clearAllKeyVisuals();
+        // FIN CAMBIO 3
         
         this.logToConsole("Reproduccion cancelada por el usuario.");
         this.updateUIStatus(); 
@@ -443,7 +474,10 @@ Piano.prototype.detenerYGrabarNota = function(key) { // 'key' ahora es el 'code'
         var duracionMs = Math.max(1, tiempoSoltarMs - tiempoInicio); 
         var freqFinal = notaActiva.freq;
         
-        this.grabarNotaYPausa(freqFinal, duracionMs, tiempoInicio, tiempoSoltarMs);
+        // Modificación CRÍTICA: La grabación debe guardar la FRECUENCIA BASE para la simulación visual.
+        var freqBase = this.frecuenciaPorTecla[key];
+        
+        this.grabarNotaYPausa(freqFinal, duracionMs, tiempoInicio, tiempoSoltarMs, freqBase);
         delete this.tiempoInicioPulsacion[key];
     }
 };
@@ -454,7 +488,8 @@ Piano.prototype.detenerYGrabarNota = function(key) { // 'key' ahora es el 'code'
  * asegurando que la velocidad de la melodía se mantenga fiel a la interpretación,
  * independientemente del Release del instrumento.
  */
-Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoInicio, tiempoFinPulsacion) {
+// Modificar para aceptar la frecuencia base (necesaria para el mapeo inverso durante la reproducción)
+Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoInicio, tiempoFinPulsacion, freqBase) {
     var MIN_PAUSA_MS = 1.0; 
     
     // 1. Grabar la pausa (silencio entre la nota anterior y esta)
@@ -469,7 +504,8 @@ Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoIni
             var PAUSE_REDUCTION_DIVISOR = 1.3157894736842106;
             var pausaReducidaMs = pausaMs / PAUSE_REDUCTION_DIVISOR; 
 
-            this.grabacion.push({ frecuencia: 0, duracionMs: pausaReducidaMs });
+            // Se graba la pausa con Frecuencia Final = 0 y Frecuencia Base = 0
+            this.grabacion.push({ frecuencia: 0, duracionMs: pausaReducidaMs, freqBase: 0 });
             this.logToConsole("PAUSA grabada (reducida al 76%): " + pausaReducidaMs.toFixed(0) + " ms");
         } else if (pausaMs < -MIN_PAUSA_MS) {
              // Esto significa que la nueva nota se presionó mucho antes de soltar la anterior (superposición).
@@ -478,7 +514,13 @@ Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoIni
     }
     
     // 2. Grabar la nueva nota (duración de la pulsación)
-    this.grabacion.push({ frecuencia: freqFinal, duracionMs: duracionNotaMs });
+    this.grabacion.push({ 
+        frecuencia: freqFinal, 
+        duracionMs: duracionNotaMs,
+        // INICIO CAMBIO 4: Guardar la frecuencia base para el mapeo visual durante la reproducción
+        freqBase: freqBase 
+        // FIN CAMBIO 4
+    });
     this.logToConsole("Nota: " + freqFinal + " Hz grabada (" + duracionNotaMs + " ms)");
     
     // 3. Actualizar el tiempo de fin de la última nota grabada
@@ -513,6 +555,9 @@ Piano.prototype.reproducirGrabacion = function() {
         if (index >= self.grabacion.length || self.cancelPlayback) {
             self.isPlaying = false;
             self.cancelPlayback = false;
+            // INICIO CAMBIO 5: Limpiar teclas al finalizar la reproducción
+            self.clearAllKeyVisuals();
+            // FIN CAMBIO 5
             self.logToConsole("--- FIN REPRODUCCION ---");
             self.updateUIStatus();
             return;
@@ -520,6 +565,21 @@ Piano.prototype.reproducirGrabacion = function() {
 
         var nota = self.grabacion[index];
         var promise;
+        var keyElement = null;
+        
+        // INICIO CAMBIO 6: Lógica de simulación visual
+        var noteCode = null; 
+        if (nota.frecuencia > 0) {
+            // Buscamos el código de la tecla usando la frecuencia base grabada
+            noteCode = self.frecuenciaBasePorCode[nota.freqBase];
+            if (noteCode) {
+                 keyElement = document.querySelector('.key[data-code="' + noteCode + '"]');
+                 if (keyElement) {
+                     keyElement.classList.add('pressed');
+                 }
+            }
+        }
+        // FIN CAMBIO 6
 
         if (nota.frecuencia > 0) {
             // startBeep solo hace el ATTACK. 
@@ -535,6 +595,12 @@ Piano.prototype.reproducirGrabacion = function() {
         }
         
         promise.then(function() {
+            // INICIO CAMBIO 7: Quitar la clase 'pressed' al finalizar la duración grabada
+            if (keyElement) {
+                 keyElement.classList.remove('pressed');
+            }
+            // FIN CAMBIO 7
+            
             // Se llama a la siguiente nota/pausa inmediatamente después de que termina el tiempo grabado.
             playNext(index + 1);
         });
@@ -633,9 +699,12 @@ Piano.prototype.parsearYAplicarMelodia = function(contenido, nombreArchivo) {
             continue;
         }
 
+        // [IMPORTANTE] Al cargar, no tenemos la Frecuencia Base. La establecemos a la Frecuencia Final.
+        // Esto solo funcionará correctamente si la octava era x1.00 al grabar el archivo MUS original.
         nuevaGrabacion.push({ 
             frecuencia: freq, 
-            duracionMs: Math.max(dur, MIN_DURACION_AUDIBLE_MS) 
+            duracionMs: Math.max(dur, MIN_DURACION_AUDIBLE_MS),
+            freqBase: freq // <-- Simulamos freqBase = freq para reproducción
         });
     }
 
@@ -665,6 +734,7 @@ Piano.prototype.guardarMelodiaAArchivo = function() {
     var contenido = '';
     for (var i = 0; i < this.grabacion.length; i++) {
         var n = this.grabacion[i];
+        // [IMPORTANTE] Solo guardamos la frecuencia final y la duración, el formato MUS no almacena freqBase.
         contenido += n.frecuencia.toFixed(0) + "," + n.duracionMs.toFixed(2) + ",00\n";
     }
 
