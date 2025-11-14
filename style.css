@@ -37,8 +37,7 @@ h1, h2, h3 {
 /* --- ESTILOS PARA EL TECLADO VIRTUAL --- */
 #keyboard {
     position: relative;
-    /* CORRECCIÓN: Ancho ajustado a 720px para 12*60px con box-sizing */
-    width: 720px; 
+    width: 720px; /* Corregido para 12 teclas * 60px */
     height: 150px; 
     margin: 20px auto;
     border: 1px solid #000;
@@ -62,8 +61,7 @@ h1, h2, h3 {
 
 /* TECLAS BLANCAS */
 .white-key {
-    /* CORRECCIÓN CRÍTICA: Incluye el borde dentro del ancho de 60px */
-    box-sizing: border-box;
+    box-sizing: border-box; /* CRÍTICO: Asegura que el ancho sea exacto (60px incluyendo borde) */
     width: 60px;
     height: 100%;
     background-color: #fff;
