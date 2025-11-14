@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MelodEight Web Piano v1.03</title> 
+    <title>MelodEight Web Piano v1.04</title> 
     <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
@@ -11,7 +11,7 @@
         MELOD8 Web Piano
         <span id="header-details">
             <span id="credit-by-fito">by fito</span> 
-            <span id="version-text">v1.03</span>
+            <span id="version-text">v1.04</span>
         </span>
     </h1>
 
@@ -60,12 +60,12 @@
         <label for="export-as-data">Export as DATA</label>
     </div>
 
-    <input type="file" id="file-input" accept=".mus" style="display:none;" onchange="window.piano.cargarMelodiaDesdeInput(this.files)">
+    <input type="file" id="file-input" accept=".mus" style="display:none;">
 
     <h2>System Log</h2>
     <pre id="log-area"></pre>
 
-    <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.js"></script>
+    <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.min.js"></script>
     <script src="piano.js"></script> 
 </body>
 </html>
