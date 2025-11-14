@@ -17,14 +17,6 @@ h1, h2, h3 {
     font-weight: bold;
 }
 
-#keyboard-guide p {
-    background-color: #f0f0f0;
-    padding: 5px;
-    border-radius: 3px;
-    white-space: pre-wrap;
-    font-size: 0.9em;
-}
-
 #log-area {
     background-color: #fff;
     border: 1px solid #008000;
@@ -40,4 +32,93 @@ h1, h2, h3 {
     background-color: #aaffaa;
     border: 1px solid #008000;
     cursor: pointer;
+}
+
+/* --- ESTILOS PARA EL TECLADO VIRTUAL --- */
+#keyboard {
+    position: relative;
+    /* CORRECCIÓN: Ancho ajustado a 720px para 12*60px con box-sizing */
+    width: 720px; 
+    height: 150px; 
+    margin: 20px auto;
+    border: 1px solid #000;
+    background-color: #222;
+    border-radius: 5px;
+    user-select: none; 
+}
+
+.key {
+    cursor: pointer;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
+    transition: transform 0.05s ease, background-color 0.1s;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; 
+    padding-bottom: 5px;
+    font-size: 0.8em;
+    user-select: none; 
+    line-height: 1; 
+}
+
+/* TECLAS BLANCAS */
+.white-key {
+    /* CORRECCIÓN CRÍTICA: Incluye el borde dentro del ancho de 60px */
+    box-sizing: border-box;
+    width: 60px;
+    height: 100%;
+    background-color: #fff;
+    border: 1px solid #ccc;
+    border-right: none;
+    float: left; 
+    z-index: 1; 
+    color: #000;
+}
+#keyboard .white-key:last-child {
+    border-right: 1px solid #ccc;
+}
+
+
+/* TECLAS NEGRAS */
+.black-key {
+    position: absolute; 
+    width: 38px;
+    height: 60%; 
+    top: 0;
+    background-color: #000;
+    border: 1px solid #111;
+    z-index: 2; 
+    color: #fff;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+
+/* Posicionamiento de las teclas negras (A-W-S-E-D) */
+[data-code="KeyW"] { left: 41px; } 
+[data-code="KeyE"] { left: 101px; } 
+
+
+/* Posicionamiento de las teclas negras (F-T-G-Y-H-U-J) */
+[data-code="KeyT"] { left: 221px; } 
+[data-code="KeyY"] { left: 281px; } 
+[data-code="KeyU"] { left: 341px; } 
+
+
+/* Posicionamiento de las teclas negras (K-I-L-O-Ñ-P-´) */
+[data-code="KeyI"] { left: 461px; } 
+[data-code="KeyO"] { left: 521px; } 
+[data-code="KeyP"] { left: 581px; } 
+[data-code="KeyOemOpenBrackets"] { left: 642px; } 
+
+/* EFECTOS DE PULSACIÓN (Press/Active state) */
+.key.pressed {
+    transform: translateY(2px); 
+    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5) inset;
+}
+
+.white-key.pressed {
+    background-color: #ccc;
+}
+
+.black-key.pressed {
+    background-color: #000;
 }

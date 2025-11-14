@@ -286,6 +286,14 @@ Piano.prototype.handleKeyDown = function(event) {
         if (this.osciladoresActivos.hasOwnProperty(noteKey)) return;
         
         event.preventDefault();
+
+        // --- NUEVO: Añadir clase 'pressed' al elemento visual ---
+        var keyElement = document.querySelector('.key[data-code="' + noteKey + '"]');
+        if (keyElement) {
+            keyElement.classList.add('pressed');
+        }
+        // --------------------------------------------------------
+        
         this.tocarNota(noteKey); // Pasa el CÓDIGO
         this.updateUIStatus();
     } else {
@@ -318,6 +326,14 @@ Piano.prototype.handleKeyUp = function(event) {
     
     if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // <-- Usamos noteKey (code) aquí
         event.preventDefault();
+        
+        // --- NUEVO: Quitar clase 'pressed' del elemento visual ---
+        var keyElement = document.querySelector('.key[data-code="' + noteKey + '"]');
+        if (keyElement) {
+            keyElement.classList.remove('pressed');
+        }
+        // --------------------------------------------------------
+
         if (this.tiempoInicioPulsacion.hasOwnProperty(noteKey)) {
             this.detenerYGrabarNota(noteKey); // <-- Pasamos noteKey (code) a detenerYGrabarNota
             this.updateUIStatus();
@@ -1003,21 +1019,89 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     }
 };
 
+/**
+ * NUEVO: Añade listeners para que el teclado virtual funcione al hacer clic o tocar.
+ */
+Piano.prototype.setupVirtualKeyboardListeners = function() {
+    var self = this;
+    var keys = document.querySelectorAll('#keyboard .key');
+    
+    keys.forEach(function(keyElement) {
+        var noteKey = keyElement.getAttribute('data-code'); // El código de tecla (e.g., 'KeyA')
+
+        // Solo mapear teclas que tienen una frecuencia asignada
+        if (!self.frecuenciaPorTecla.hasOwnProperty(noteKey)) {
+             return; 
+        }
+
+        // --- MOUSE DOWN (equivalente a keydown) ---
+        keyElement.addEventListener('mousedown', function(event) {
+            event.preventDefault(); 
+            // Simular event.repeat = false
+            if (self.osciladoresActivos.hasOwnProperty(noteKey)) return;
+
+            keyElement.classList.add('pressed');
+            self.tocarNota(noteKey);
+            self.updateUIStatus();
+        });
+
+        // --- MOUSE UP (equivalente a keyup) ---
+        keyElement.addEventListener('mouseup', function(event) {
+            keyElement.classList.remove('pressed');
+            if (self.tiempoInicioPulsacion.hasOwnProperty(noteKey)) {
+                self.detenerYGrabarNota(noteKey);
+                self.updateUIStatus();
+            }
+        });
+        
+        // --- MOUSE OUT (detener sonido si se suelta fuera de la tecla) ---
+        keyElement.addEventListener('mouseout', function(event) {
+            if (self.tiempoInicioPulsacion.hasOwnProperty(noteKey) && keyElement.classList.contains('pressed')) {
+                keyElement.classList.remove('pressed');
+                self.detenerYGrabarNota(noteKey);
+                self.updateUIStatus();
+            }
+        });
+        
+        // --- TOUCH EVENTS para soporte móvil ---
+        keyElement.addEventListener('touchstart', function(event) {
+             event.preventDefault(); 
+             if (self.osciladoresActivos.hasOwnProperty(noteKey)) return;
+             keyElement.classList.add('pressed');
+             self.tocarNota(noteKey);
+             self.updateUIStatus();
+        });
+        
+        keyElement.addEventListener('touchend', function(event) {
+             event.preventDefault();
+             keyElement.classList.remove('pressed');
+             if (self.tiempoInicioPulsacion.hasOwnProperty(noteKey)) {
+                 self.detenerYGrabarNota(noteKey);
+                 self.updateUIStatus();
+             }
+        });
+    });
+};
+
+
 document.addEventListener('DOMContentLoaded', function() {
     // Inicialización del Piano y manejo del checkbox de DATA/READ
     var logArea = document.getElementById('log-area');
-    var checkbox = document.getElementById('export-data-checkbox');
+    // CORRECCIÓN ID: "export-as-data"
+    var checkbox = document.getElementById('export-as-data');
     var fileInput = document.getElementById('file-input');
     
     if (logArea) {
         window.piano = new Piano();
         
+        // --- NUEVO: Inicializar el teclado virtual ---
+        piano.setupVirtualKeyboardListeners(); 
+        // ---------------------------------------------
+
         if (checkbox) {
             // Inicializar el estado y añadir el listener
             piano.setExportAsData(checkbox.checked);
-            checkbox.addEventListener('change', function() {
-                piano.setExportAsData(this.checked);
-            });
+            // El listener ya está en el HTML, no es necesario duplicarlo aquí
         }
 
         // Manejar la carga de archivos MUS
