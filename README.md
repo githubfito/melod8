@@ -53,7 +53,7 @@ https://githubfito.github.io/melod8/
 1000 STOP
 ```
 
-You can use the fantastic Amstrad emulator provided by ‘benchmarko’ that allows you to paste basic code directly. It's impressive. Thanks to the author.
+You can use the fantastic Amstrad emulator provided by ‘benchmarko’- Marco Vieth, that allows you to paste basic code directly. It's impressive. Thanks to the author.
 https://benchmarko.github.io/CPCBasic/index.html
 
 If you generate basic audio files, remember to mention MELOD8 and the author (fitosoft).
