@@ -1,4 +1,4 @@
-// Variable global para el contexto de audio
+m// Variable global para el contexto de audio
 var audioContext;
 // NOTA: El mapa de osciladores activos se gestiona dentro de la clase Piano
 
