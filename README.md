@@ -1,5 +1,10 @@
-Play your melodies on the keyboard (white and black notes) to generate a basic file compatible with Amstrad CPC, ZX Spectrum or PowerBasic.
-Load these files onto that hardware and the melody you played on the keyboard will be played back.
+Play your melodies online (beta) on your QWERTY keyboard (white and black keys) to generate a BASIC command file, ready to be executed so you can play the melody. Generate the file for:
+
+* Amstrad CPC
+* ZX Spectrum
+* PowerBasic 3.5 for DOS
+
+Forget about searching for the notes of your melody one by one. Play the melody and when you have it, press generate file.
 
 Try it here:
 https://githubfito.github.io/melod8/
