@@ -9,6 +9,34 @@ h1, h2, h3 {
     color: #008000;
 }
 
+/* --- NUEVO: Estilo para el encabezado H1 para usar Flexbox y justificar --- */
+h1 {
+    display: flex; /* Habilita Flexbox */
+    justify-content: space-between; /* Distribuye el espacio entre los elementos: "MELOD8 Web Piano" a la izquierda, el resto a la derecha */
+    align-items: flex-end; /* Alinea los elementos a la parte inferior del h1 si tienen diferente tamaño de fuente */
+    margin-bottom: 5px; /* Reduce el margen inferior para que el crédito esté más cerca del título */
+    padding-right: 10px; /* Pequeño espacio a la derecha */
+}
+
+/* Contenedor del crédito y la versión */
+#header-details {
+    font-size: 0.6em; /* Fuente más pequeña que el h1 */
+    font-weight: normal; 
+    white-space: nowrap; /* Evita que el texto se parta en dos líneas */
+    text-align: right; /* Asegura la justificación a la derecha */
+}
+
+#credit-by-fito {
+    color: #006400; /* Color más oscuro para el crédito */
+    padding-right: 5px;
+}
+
+#version-text {
+    font-weight: bold;
+}
+/* -------------------------------------------------------------------------- */
+
+
 #status-line {
     background-color: #006400; 
     color: #fff;
@@ -52,9 +80,8 @@ h1, h2, h3 {
     transition: transform 0.05s ease, background-color 0.1s;
     display: flex;
     justify-content: center;
-    /* CRITICAL: Forces content (the letter) to the bottom */
-    align-items: flex-end; 
-    padding-bottom: 5px; /* Adds space from the bottom border */
+    align-items: flex-end; /* CRÍTICO: Mantiene la letra en la parte inferior */
+    padding-bottom: 5px; 
     font-size: 0.8em;
     user-select: none; 
     line-height: 1; 
@@ -62,7 +89,7 @@ h1, h2, h3 {
 
 /* WHITE KEYS */
 .white-key {
-    box-sizing: border-box; /* CRITICAL: Ensures the width is exact (60px including border) */
+    box-sizing: border-box;
     width: 60px;
     height: 100%;
     background-color: #fff;
@@ -91,7 +118,7 @@ h1, h2, h3 {
 }
 
 
-/* Black key positioning */
+/* Posicionamiento de las teclas negras */
 [data-code="KeyW"] { left: 41px; } 
 [data-code="KeyE"] { left: 101px; } 
 [data-code="KeyT"] { left: 221px; } 
@@ -102,16 +129,16 @@ h1, h2, h3 {
 [data-code="KeyP"] { left: 581px; } 
 [data-code="KeyOemOpenBrackets"] { left: 642px; } 
 
-/* PRESS EFFECTS (Press/Active state) */
-.key.pressed {
+/* EFECTOS DE PULSACIÓN (Press/Active state) */
+.key.pressed, .key:active {
     transform: translateY(2px); 
     box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5) inset;
 }
 
-.white-key.pressed {
+.white-key.pressed, .white-key:active {
     background-color: #ccc;
 }
 
-.black-key.pressed {
-    background-color: #000;
+.black-key.pressed, .black-key:active {
+    background-color: #1a1a1a !important; 
 }
