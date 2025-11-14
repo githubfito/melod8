@@ -1,4 +1,4 @@
-Play your melodies online (beta) on your QWERTY keyboard (white and black keys) to generate a BASIC command file, ready to be executed so you can play the melody. Generate the file for:
+Play your melodies online (beta) on your QWERTY keyboard (white and black keys) to generate a BASIC command file, ready to be executed on your retro machines so you can play the melody. Generate the file for:
 
 * Amstrad CPC
 * ZX Spectrum
