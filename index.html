@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MelodEight Web Piano v1.01</title> 
+    <title>MelodEight Web Piano v1.03</title> 
     <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
 
-    <h1>MELOD8 Web Piano v1.01</h1>
+    <h1>
+        MELOD8 Web Piano
+        <span id="header-details">
+            <span id="credit-by-fito">by fito</span> 
+            <span id="version-text">v1.03</span>
+        </span>
+    </h1>
 
     <div id="status-line">
         Octave: <span id="octave-factor">x1.00</span> | Notes: <span id="note-count">0</span> | Duration: <span id="duration-ms">150</span> ms | File: <span id="file-name">SONG.MUS</span>
@@ -45,7 +51,9 @@
         <button onclick="piano.handleCommand('4')">[4] CPC BASIC</button>
         <button onclick="piano.handleCommand('5')">[5] PB BASIC</button>
         <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
-        <button onclick="piano.changeInstrument(-1)">[Z] Instrument -</button> <button onclick="piano.changeInstrument(1)">[X] Instrument +</button>  <button onclick="piano.handleCommand(',')">[ , ] Octave -</button>
+        <button onclick="piano.changeInstrument(-1)">[Z] Instrument -</button> 
+        <button onclick="piano.changeInstrument(1)">[X] Instrument +</button>  
+        <button onclick="piano.handleCommand(',')">[ , ] Octave -</button>
         <button onclick="piano.handleCommand('.')">[ . ] Octave +</button>
         <button onclick="piano.handleCommand('m')">[M] Help</button>
         <input type="checkbox" id="export-as-data" onchange="window.piano.setExportAsData(this.checked)">
