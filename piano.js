@@ -131,7 +131,7 @@ function Piano() {
     this.exportAsData = false; 
 
     // --- NEW: Version Constant ---
-    this.VERSION = "1.01"; 
+    this.VERSION = "1.03"; // <-- VERSION BUMPED
 
     // --- INSTRUMENT STATE ---
     this.instruments = this.initializeInstruments();
@@ -557,7 +557,9 @@ Piano.prototype.eliminarPausasFinales = function() {
 Piano.prototype.mostrarAyudaCompleta = function() {
     var helpText = "\n" +
 "### MELOD8 Web Piano - Version History ###\n" + 
-" 1.01 (2025-11-14): Translate to english\n" +
+" 1.03 (2025-11-14): Feature: Added 'by fito' credit to the header.\n" +
+" 1.02 (2025-11-14): Fix: Added :active state to keys for better mobile feedback and corrected black key press color.\n" +
+" 1.01 (2025-11-14): Translate to english and restore Z/X instrument change buttons.\n" +
 " 1.00 (2025-11-14): Initial release with ADSR control and multi-format BASIC export.\n" +
 "\n" +
 "RECORDING AND PLAYBACK COMMANDS:\n" +
@@ -1067,8 +1069,14 @@ Piano.prototype.setupVirtualKeyboardListeners = function() {
         // --- TOUCH EVENTS for mobile support ---
         keyElement.addEventListener('touchstart', function(event) {
              event.preventDefault(); 
+             // IMPORTANT: Avoid adding 'pressed' here since the :active pseudo-class in CSS handles the visual
+             // The JS is only needed to manage the sound state and prevent accidental repeats.
+             
              if (self.osciladoresActivos.hasOwnProperty(noteKey)) return;
+             
+             // Although :active helps visually, we need the JS class to manage the release on touchend
              keyElement.classList.add('pressed');
+             
              self.tocarNota(noteKey);
              self.updateUIStatus();
         });
