@@ -1,88 +1,88 @@
-// Global variable for the audio context
+// Variable global para el contexto de audio
 var audioContext;
-// NOTE: The active oscillators map is managed within the Piano class
+// NOTA: El mapa de osciladores activos se gestiona dentro de la clase Piano
 
 /**
- * Function to start tone playback using Web Audio API.
- * Applies the volume ATTACK based on the instrument parameters.
- * @param {number} frequency - Frequency in Hz (0 for pause, returns null).
- * @param {Object} instrument - Object containing the ADSR parameters (attack, sustainLevel, type, release).
- * @returns {Object | null} Returns an object with the oscillator and the Gain node.
+ * Función para iniciar la reproducción de un tono usando Web Audio API.
+ * Aplica el ATAQUE de volumen basado en los parámetros del instrumento.
+ * @param {number} frecuencia - Frecuencia en Hz (0 para pausa, devuelve null).
+ * @param {Object} instrument - Objeto que contiene los parámetros ADSR (attack, sustainLevel, type, release).
+ * @returns {Object | null} Devuelve un objeto con el oscilador y el nodo Gain.
  */
-function startBeep(frequency, instrument) {
+function startBeep(frecuencia, instrument) {
     if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
 
-    if (frequency <= 0) {
+    if (frecuencia <= 0) {
         return null;
     }
 
     var oscillator = audioContext.createOscillator();
-    var gainNode = audioContext.createGain(); // Volume control node
+    var gainNode = audioContext.createGain(); // Nodo de control de volumen
 
-    // Connection
+    // Conexión
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
 
-    // Wave type: Configured by the instrument
+    // Tipo de onda: Configurado por el instrumento
     oscillator.type = instrument.type; 
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(frecuencia, audioContext.currentTime);
 
-    // Attack: Ramps the volume up based on the instrument parameters
+    // Ataque (Attack): Sube el volumen basado en los parámetros del instrumento
     var now = audioContext.currentTime;
     gainNode.gain.setValueAtTime(0, now);
     
-    // Ramp up to Sustain Level
+    // Rampa hasta el Nivel de Sostenimiento (Sustain Level)
     gainNode.gain.linearRampToValueAtTime(instrument.sustainLevel, now + instrument.attack); 
 
     oscillator.start(now);
 
-    // Returns the oscillator AND the Gain node
+    // Devuelve el oscilador Y el nodo Gain
     return { osc: oscillator, gain: gainNode };
 }
 
 /**
- * Stops an oscillator after a specific time (useful for playing back recorded melodies).
- * APPLIES THE INSTRUMENT RELEASE starting from the recorded durationMs.
- * The promise resolves after durationMs to keep the playback chain on time.
- * @param {Object} audioNode - Object {osc: OscillatorNode, gain: GainNode}
- * @param {number} durationMs - Duration of the recorded keypress (Sustain Time).
- * @param {Object} instrument - Object containing the ADSR parameters.
+ * Detiene un oscilador después de un tiempo específico (útil para reproducir melodías grabadas).
+ * APLICA EL RELEASE del instrumento a partir de la duraciónMs grabada.
+ * La promesa se resuelve después de durationMs para mantener la cadena de reproducción a tiempo.
+ * @param {Object} audioNode - Objeto {osc: OscillatorNode, gain: GainNode}
+ * @param {number} durationMs - Duración de la pulsación de tecla grabada (Tiempo de Sostenimiento).
+ * @param {Object} instrument - Objeto que contiene los parámetros ADSR.
  * @returns {Promise<void>}
  */
 function stopBeep(audioNode, durationMs, instrument) {
     if (audioNode && audioNode.osc) {
-        // --- 1. SOUND DECAY AND STOP PROGRAMMING ---
+        // --- 1. PROGRAMACIÓN DE CAÍDA Y PARADA DEL SONIDO ---
         var durationSec = durationMs / 1000.0;
         var now = audioContext.currentTime;
-        var releaseTime = instrument.release; // Instrument release time
+        var releaseTime = instrument.release; // Tiempo de Release del instrumento
 
-        // 1. Calculate the time in seconds when the keypress 'ends' (start of Release)
+        // 1. Calcular el tiempo en segundos cuando la pulsación 'termina' (inicio del Release)
         var releaseStartTime = now + durationSec;
         
-        // 2. Calculate the total sound time (keypress + release)
+        // 2. Calcular el tiempo total de sonido (pulsación + release)
         var totalSoundTimeSec = durationSec + releaseTime; 
         var totalSoundTimeMs = durationMs + (releaseTime * 1000); 
         
-        // Apply the RELEASE: Exponential ramp from sustainLevel to zero
+        // Aplicar el RELEASE: Rampa exponencial desde sustainLevel hasta cero
         audioNode.gain.gain.cancelScheduledValues(now);
         audioNode.gain.gain.setValueAtTime(instrument.sustainLevel, releaseStartTime); 
         audioNode.gain.gain.exponentialRampToValueAtTime(0.0001, now + totalSoundTimeSec); 
         
-        // Stop the oscillator when the sound has completely decayed (This runs in the background)
+        // Detener el oscilador cuando el sonido ha decaído completamente (Esto se ejecuta en segundo plano)
         setTimeout(function() {
             try {
                 audioNode.osc.stop(); 
             } catch (e) {
-                // Already stopped
+                // Ya estaba detenido
             }
         }, totalSoundTimeMs); 
         
-        // --- 2. PLAYBACK CHAIN SYNCHRONIZATION ---
+        // --- 2. SINCRONIZACIÓN DE LA CADENA DE REPRODUCCIÓN ---
         return new Promise(function(resolve) {
-            // CRITICAL: We resolve the promise after the *recorded* duration (durationMs).
-            // This allows the next note or pause to start on time.
+            // CRÍTICO: Resolvemos la promesa después de la duración *grabada* (durationMs).
+            // Esto permite que la siguiente nota o pausa comience a tiempo.
             setTimeout(resolve, durationMs); 
         });
     }
@@ -91,7 +91,7 @@ function stopBeep(audioNode, durationMs, instrument) {
 
 
 /**
- * Portable function to save text as a file in the browser.
+ * Función portable para guardar texto como un archivo en el navegador.
  */
 function guardarArchivoComo(contenido, nombreArchivo) {
     try {
@@ -123,7 +123,7 @@ function Piano() {
     this.duracionPredeterminadaMs = 150; 
     this.isPlaying = false;
     this.cancelPlayback = false;
-    // CRITICAL: This value now stores the *end of keypress* time (not end of sound) of the last note.
+    // CRITICAL: Este valor ahora guarda el tiempo de *fin de pulsación* (no fin de sonido) de la última nota.
     this.tiempoDeUltimaNotaMs = 0; 
     this.ultimoArchivoProcesado = "SONG.MUS"; 
     
@@ -131,11 +131,11 @@ function Piano() {
     this.exportAsData = false; 
 
     // --- NEW: Version Constant ---
-    this.VERSION = "1.03"; // <-- VERSION BUMPED
+    this.VERSION = "1.04"; // <-- VERSIÓN ACTUALIZADA
 
     // --- INSTRUMENT STATE ---
     this.instruments = this.initializeInstruments();
-    this.instrumentIndex = 0; // Initial Instrument: Classic Piano
+    this.instrumentIndex = 0; // Instrumento Inicial: Classic Piano
 
     this.tiempoInicioPulsacion = {}; 
     this.osciladoresActivos = {}; 
@@ -154,7 +154,7 @@ function Piano() {
 // --- PIANO CLASS METHODS ---
 
 /**
- * Method required to handle the DATA/READ export checkbox.
+ * Método requerido para manejar el checkbox de exportación DATA/READ.
  */
 Piano.prototype.setExportAsData = function(isChecked) {
     this.exportAsData = isChecked;
@@ -173,7 +173,7 @@ Piano.prototype.logToConsole = function(texto) {
 };
 
 Piano.prototype.updateUIStatus = function() {
-    // Only update if elements exist in the DOM
+    // Solo actualizar si existen elementos en el DOM
     var oe = document.getElementById('octave-factor');
     var nc = document.getElementById('note-count');
     var dm = document.getElementById('duration-ms');
@@ -185,7 +185,7 @@ Piano.prototype.updateUIStatus = function() {
 };
 
 /**
- * Defines the 15 instruments with their volume envelope parameters (simplified ADSR).
+ * Define los 15 instrumentos con sus parámetros de envolvente de volumen (ADSR simplificado).
  */
 Piano.prototype.initializeInstruments = function() {
     return [
@@ -223,21 +223,21 @@ Piano.prototype.initializeInstruments = function() {
 };
 
 Piano.prototype.inicializarMapasDeNotas = function() {
-    // [CRITICAL MODIFICATION]
-    // We use event.code (physical code) instead of event.key (character).
-    // This ensures the note is activated regardless of the keyboard layout.
+    // [MODIFICACIÓN CRÍTICA]
+    // Usamos event.code (código físico) en lugar de event.key (caracter).
+    // Esto asegura que la nota se active independientemente de la distribución del teclado.
 
-    // Position correspondence (Standard QWERTY Keyboard):
-    // White Keys: 'a','s','d','f','g','h','j','k','l',';',''','#'
-    // On the Spanish QWERTY keyboard: 'a','s','d','f','g','h','j','k','l','ñ','´','Ç'
+    // Correspondencia de posiciones (Teclado QWERTY estándar):
+    // Teclas Blancas: 'a','s','d','f','g','h','j','k','l',';',''','#'
+    // En teclado QWERTY español: 'a','s','d','f','g','h','j','k','l','ñ','´','Ç'
     var keysBlancasCode = [
         'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 
         'KeyK', 'KeyL', 'Semicolon', 'Quote', 'Backslash' 
     ]; 
     var frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784];
 
-    // Black Keys: 'w','e', 't','y','u','i','o','p', '[' 
-    // On the Spanish keyboard: 'w','e','t','y','u','i','o','p', '+'
+    // Teclas Negras: 'w','e', 't','y','u','i','o','p', '[' 
+    // En teclado español: 'w','e','t','y','u','i','o','p', '+'
     var keysNegrasCode = [
         'KeyW', 'KeyE', 'KeyT', 'KeyY', 'KeyU', 
         'KeyI', 'KeyO', 'KeyP', 'KeyOemOpenBrackets' 
@@ -251,18 +251,18 @@ Piano.prototype.inicializarMapasDeNotas = function() {
 
 // ----------------------------------------------------------------------------------------------------------------
 
-// ... (Previous methods remain)
+// ... (Métodos anteriores se mantienen)
 
 Piano.prototype.handleKeyDown = function(event) {
-    // Use event.code for notes (physical positions)
+    // Usar event.code para notas (posiciones físicas)
     var noteKey = event.code; 
-    // Use event.key for commands (characters)
+    // Usar event.key para comandos (caracteres)
     var commandKey = event.key.toLowerCase();
     
     if (this.isPlaying) {
-        // --- CRITICAL CORRECTION: IMMEDIATE STOP ---
+        // --- CORRECCIÓN CRÍTICA: PARADA INMEDIATA ---
         this.cancelPlayback = true; 
-        this.isPlaying = false; // Allows the next keypress to be a normal note/command
+        this.isPlaying = false; // Permite que la siguiente pulsación sea una nota/comando normal
         
         this.logToConsole("Playback cancelled by user.");
         this.updateUIStatus(); 
@@ -271,7 +271,7 @@ Piano.prototype.handleKeyDown = function(event) {
         return; 
     }
 
-    // --- INSTRUMENT LOGIC (Z/X) ---
+    // --- LÓGICA DE INSTRUMENTO (Z/X) ---
     if (commandKey === 'z') {
         event.preventDefault();
         this.changeInstrument(-1);
@@ -284,23 +284,23 @@ Piano.prototype.handleKeyDown = function(event) {
     }
     // ------------------------------------------
 
-    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // Search for note by key CODE
+    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // Buscar nota por CÓDIGO de tecla
         if (event.repeat) return;
         if (this.osciladoresActivos.hasOwnProperty(noteKey)) return;
         
         event.preventDefault();
 
-        // --- NEW: Add 'pressed' class to the visual element ---
+        // --- NEW: Añadir clase 'pressed' al elemento visual ---
         var keyElement = document.querySelector('.key[data-code="' + noteKey + '"]');
         if (keyElement) {
             keyElement.classList.add('pressed');
         }
         // --------------------------------------------------------
         
-        this.tocarNota(noteKey); // Pass the CODE
+        this.tocarNota(noteKey); // Pasar el CÓDIGO
         this.updateUIStatus();
     } else {
-        // --- LOGGING UNMAPPED KEYS AS COMMANDS ---
+        // --- REGISTRO DE TECLAS NO MAPEADAS COMO COMANDOS ---
         if (commandKey.length === 1 || commandKey === 'escape') {
              this.logToConsole(
                  "Unmapped Command/Key: Key='" + commandKey.toUpperCase() + 
@@ -313,24 +313,24 @@ Piano.prototype.handleKeyDown = function(event) {
              );
         }
         
-        // Process the command (uses the key character: commandKey)
+        // Procesar el comando (usa el caracter de la tecla: commandKey)
         this.handleCommand(commandKey);
     }
 };
 
-// ... (The rest of the code remains)
+// ... (El resto del código se mantiene)
 
 // ----------------------------------------------------------------------------------------------------------------
 
 Piano.prototype.handleKeyUp = function(event) {
-    // [CRITICAL MODIFICATION]
-    // Use event.code to stop the note (must match the key used in handleKeyDown).
+    // [MODIFICACIÓN CRÍTICA]
+    // Usar event.code para detener la nota (debe coincidir con la tecla usada en handleKeyDown).
     var noteKey = event.code; 
     
-    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // <-- Use noteKey (code) here
+    if (this.frecuenciaPorTecla.hasOwnProperty(noteKey)) { // <-- Usar noteKey (código) aquí
         event.preventDefault();
         
-        // --- NEW: Remove 'pressed' class from the visual element ---
+        // --- NEW: Eliminar clase 'pressed' del elemento visual ---
         var keyElement = document.querySelector('.key[data-code="' + noteKey + '"]');
         if (keyElement) {
             keyElement.classList.remove('pressed');
@@ -338,7 +338,7 @@ Piano.prototype.handleKeyUp = function(event) {
         // --------------------------------------------------------
 
         if (this.tiempoInicioPulsacion.hasOwnProperty(noteKey)) {
-            this.detenerYGrabarNota(noteKey); // <-- Pass noteKey (code) to detenerYGrabarNota
+            this.detenerYGrabarNota(noteKey); // <-- Pasar noteKey (código) a detenerYGrabarNota
             this.updateUIStatus();
         }
     }
@@ -383,37 +383,37 @@ Piano.prototype.handleCommand = function(key) {
 };
 
 /**
- * Starts a note press, applies the ATTACK, and records its start time.
+ * Inicia la pulsación de una nota, aplica el ATAQUE y registra su hora de inicio.
  */
-Piano.prototype.tocarNota = function(key) { // 'key' is now the 'code' (e.g., 'KeyA')
+Piano.prototype.tocarNota = function(key) { // 'key' es ahora el 'code' (ej: 'KeyA')
     var tiempoPulsacionMs = Date.now();
-    var freqBase = this.frecuenciaPorTecla[key]; // Search by code
+    var freqBase = this.frecuenciaPorTecla[key]; // Búsqueda por code
     var freqFinal = Math.floor(freqBase * this.octavaFactor[this.indiceOctavaActual]);
     
     var currentInstrument = this.instruments[this.instrumentIndex];
     
-    // 1. Start the oscillator and save it (pass the instrument for ADSR)
+    // 1. Iniciar el oscilador y guardarlo (pasar el instrumento para ADSR)
     var audioNode = startBeep(freqFinal, currentInstrument); 
     
     this.osciladoresActivos[key] = { freq: freqFinal, node: audioNode };
     this.tiempoInicioPulsacion[key] = tiempoPulsacionMs;
     
-    // The log shows the 'code' for debugging
+    // El log muestra el 'code' para debugging
     this.logToConsole("Note: " + key + " (" + freqFinal + " Hz) STARTED"); 
 };
 
 /**
- * Stops the note, applies the volume RELEASE, calculates the duration, and records the note/pause.
+ * Detiene la nota, aplica el RELEASE de volumen, calcula la duración y graba la nota/pausa.
  */
-Piano.prototype.detenerYGrabarNota = function(key) { // 'key' is now the 'code' (e.g., 'KeyA')
+Piano.prototype.detenerYGrabarNota = function(key) { // 'key' es ahora el 'code' (ej: 'KeyA')
     var tiempoSoltarMs = Date.now();
     
-    // 1. Stop the sound with Release
+    // 1. Detener el sonido con Release
     var notaActiva = this.osciladoresActivos[key];
     var currentInstrument = this.instruments[this.instrumentIndex];
 
     if (notaActiva && notaActiva.node) {
-        // ... (RELEASE logic and setTimeout remain the same)
+        // ... (La lógica de RELEASE y setTimeout se mantiene igual)
 
         var audioNode = notaActiva.node;
         var now = audioContext.currentTime;
@@ -427,14 +427,14 @@ Piano.prototype.detenerYGrabarNota = function(key) { // 'key' is now the 'code' 
             try {
                 audioNode.osc.stop(); 
             } catch (e) {
-                // Already stopped
+                // Ya estaba detenido
             }
         }, releaseTime * 1000);
 
         delete this.osciladoresActivos[key];
     }
 
-    // 2. Calculate duration and record
+    // 2. Calcular duración y grabar
     var tiempoInicio = this.tiempoInicioPulsacion[key];
     
     if (tiempoInicio !== undefined && notaActiva) {
@@ -447,39 +447,39 @@ Piano.prototype.detenerYGrabarNota = function(key) { // 'key' is now the 'code' 
 };
 
 /**
- * Records the previous pause and the new note with its calculated duration.
- * Uses the *end of keypress* time (tiempoFinPulsacion) again to calculate the pause,
- * ensuring the melody speed remains true to the performance, regardless of the instrument Release.
+ * Graba la pausa anterior y la nueva nota con su duración calculada.
+ * Utiliza el tiempo de *fin de pulsación* (tiempoFinPulsacion) nuevamente para calcular la pausa,
+ * asegurando que la velocidad de la melodía se mantenga fiel a la interpretación, independientemente del Release del instrumento.
  */
 Piano.prototype.grabarNotaYPausa = function(freqFinal, duracionNotaMs, tiempoInicio, tiempoFinPulsacion) {
     var MIN_PAUSA_MS = 1.0; 
     
-    // 1. Record the pause (silence between the previous note and this one)
+    // 1. Grabar la pausa (silencio entre la nota anterior y esta)
     if (this.tiempoDeUltimaNotaMs !== 0) {
-        // The pause is the time from when the previous *keypress* ended (this.tiempoDeUltimaNotaMs) 
-        // until the *new note* started (tiempoInicio).
+        // La pausa es el tiempo desde que terminó la *pulsación* anterior (this.tiempoDeUltimaNotaMs) 
+        // hasta que comenzó la *nueva nota* (tiempoInicio).
         var pausaMs = tiempoInicio - this.tiempoDeUltimaNotaMs;
         
-        // Keep this simple logic to respect the performance speed.
+        // Mantener esta lógica simple para respetar la velocidad de la interpretación.
         if (pausaMs > MIN_PAUSA_MS) {
-            // CRITICAL Adjustment: Reduce the pause so it's 76% of the original duration (divide by 1 / 0.76 = 1.315789).
+            // Ajuste CRÍTICO: Reducir la pausa para que sea el 76% de la duración original (dividir por 1 / 0.76 = 1.315789).
             var PAUSE_REDUCTION_DIVISOR = 1.3157894736842106;
             var pausaReducidaMs = pausaMs / PAUSE_REDUCTION_DIVISOR; 
 
             this.grabacion.push({ frecuencia: 0, duracionMs: pausaReducidaMs });
             this.logToConsole("PAUSE recorded (reduced to 76%): " + pausaReducidaMs.toFixed(0) + " ms");
         } else if (pausaMs < -MIN_PAUSA_MS) {
-             // This means the new note was pressed well before the previous one was released (overlap).
+             // Esto significa que la nueva nota fue pulsada mucho antes de que se soltara la anterior (solapamiento).
              this.logToConsole("Keystroke overlap (Chord/Legato).");
         }
     }
     
-    // 2. Record the new note (keypress duration)
+    // 2. Grabar la nueva nota (duración de la pulsación)
     this.grabacion.push({ frecuencia: freqFinal, duracionMs: duracionNotaMs });
     this.logToConsole("Note: " + freqFinal + " Hz recorded (" + duracionNotaMs + " ms)");
     
-    // 3. Update the end time of the last recorded note
-    // CRITICAL: Use the END OF KEYPRESS time (not end of sound) to calculate the next pause.
+    // 3. Actualizar el tiempo de fin de la última nota grabada
+    // CRÍTICO: Usar el tiempo de FIN DE PULSACIÓN (no fin de sonido) para calcular la siguiente pausa.
     this.tiempoDeUltimaNotaMs = tiempoFinPulsacion;
 };
 
@@ -490,7 +490,7 @@ Piano.prototype.lockAndClearRecording = function() {
     this.logToConsole("--- NEW MELODY / RECORDING CLEARED ---");
 };
 
-// Use an asynchronous function (if environment supports it) or a promise to simulate async/await
+// Usar una función asíncrona (si el entorno lo soporta) o una promesa para simular async/await
 Piano.prototype.reproducirGrabacion = function() {
     var self = this;
     
@@ -503,7 +503,7 @@ Piano.prototype.reproducirGrabacion = function() {
     this.cancelPlayback = false;
     this.logToConsole("--- START PLAYBACK (" + this.grabacion.length + " notes) ---"); 
 
-    // Get the current instrument for playback
+    // Obtener el instrumento actual para la reproducción
     var currentInstrument = self.instruments[self.instrumentIndex];
 
     function playNext(index) {
@@ -519,20 +519,20 @@ Piano.prototype.reproducirGrabacion = function() {
         var promise;
 
         if (nota.frecuencia > 0) {
-            // startBeep only performs the ATTACK. 
+            // startBeep solo realiza el ATAQUE. 
             var audioNode = startBeep(nota.frecuencia, currentInstrument); 
-            // stopBeep: schedules the release *in the background* and returns a promise 
-            // that resolves at the end of the recorded duration (durationMs).
+            // stopBeep: programa el release *en segundo plano* y devuelve una promesa 
+            // que se resuelve al finalizar la duración grabada (durationMs).
             promise = stopBeep(audioNode, nota.duracionMs, currentInstrument);
         } else {
             promise = new Promise(function(resolve) {
-                // Pauses only wait for the recorded duration.
+                // Las pausas solo esperan la duración grabada.
                 setTimeout(resolve, nota.duracionMs);
             });
         }
         
         promise.then(function() {
-            // The next note/pause is called immediately after the recorded time ends.
+            // La siguiente nota/pausa se llama inmediatamente después de que termina el tiempo grabado.
             playNext(index + 1);
         });
     }
@@ -557,6 +557,7 @@ Piano.prototype.eliminarPausasFinales = function() {
 Piano.prototype.mostrarAyudaCompleta = function() {
     var helpText = "\n" +
 "### MELOD8 Web Piano - Version History ###\n" + 
+" 1.04 (2025-11-14): Fix: Eliminated duplicate file loading when pressing [1].\n" +
 " 1.03 (2025-11-14): Feature: Added 'by fito' credit to the header.\n" +
 " 1.02 (2025-11-14): Fix: Added :active state to keys for better mobile feedback and corrected black key press color.\n" +
 " 1.01 (2025-11-14): Translate to english and restore Z/X instrument change buttons.\n" +
@@ -712,11 +713,11 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
         sb += "70 SOUND 2,D(1),D(2)\n";
         sb += "80 NEXT I\n";
         
-        // The current line 'linea' will be used to track the start of DATA lines
+        // La línea actual 'linea' se usará para rastrear el inicio de las líneas DATA
         let dataLineNumber = LINEA_DATA_INICIO;
         
         let currentDataLine = dataLineNumber + " DATA ";
-        let pairCount = 0; // Pair counter on the current line
+        let pairCount = 0; // Contador de pares en la línea actual
 
         for (var i = 0; i < this.grabacion.length; i++) {
             var n = this.grabacion[i];
@@ -724,24 +725,24 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
             
             var pitch = 0;
             if (n.frecuencia > 0) {
-                // CPC Pitch Calculation
+                // Cálculo de Pitch para CPC
                 pitch = Math.round(62500.0 / n.frecuencia);
                 pitch = Math.max(1, Math.min(4095, pitch)); 
             } else {
-                pitch = 1; // A low pitch for SOUND 2,1,Dur: silence (pause)
+                pitch = 1; // Un pitch bajo para SOUND 2,1,Dur: silencio (pausa)
             }
             
             var dataChunk = pitch + "," + durEsc + ",";
 
-            // Pair limit control (10)
+            // Control de límite de pares (10)
             if (pairCount >= PAIRS_PER_DATA_LINE) {
-                // End the previous DATA line and add it to sb
+                // Terminar la línea DATA anterior y añadirla a sb
                 sb += currentDataLine.slice(0, -1) + "\n";
                 
-                // Move the line number to the next ordinal
+                // Mover el número de línea al siguiente ordinal
                 dataLineNumber += 10; 
                 
-                // Start a new DATA line
+                // Iniciar una nueva línea DATA
                 currentDataLine = dataLineNumber + " DATA ";
                 pairCount = 0;
             }
@@ -750,19 +751,19 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
             pairCount++;
         }
         
-        // Add the last DATA line if it has content
+        // Añadir la última línea DATA si tiene contenido
         if (pairCount > 0) {
             sb += currentDataLine.slice(0, -1) + "\n";
             dataLineNumber += 10;
         }
 
-        // End marker
+        // Marcador de fin
         sb += dataLineNumber + " DATA -1, 0\n"; 
         
-        // Use the last generated line to calculate the start of the final code
+        // Usar la última línea generada para calcular el inicio del código final
         linea = dataLineNumber + 10;
         
-        // --- KEY WAIT CODE ---
+        // --- CÓDIGO DE ESPERA DE TECLA ---
         sb += linea + " PRINT\"press a key\"\n";
         linea += 10;
         sb += linea + " WHILE INKEY$=\"\":WEND\n"; 
@@ -772,7 +773,7 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
     } else {
         this.logToConsole("Exporting to CPC line by line...");
         
-        // The initial line number for this block is 20
+        // El número de línea inicial para este bloque es 20
         linea = 20;
         
         for (var i = 0; i < this.grabacion.length; i++) {
@@ -789,7 +790,7 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
             linea += 10;
         }
         
-        // --- KEY WAIT CODE ---
+        // --- CÓDIGO DE ESPERA DE TECLA ---
         sb += linea + " PRINT\"press a key\"\n";
         linea += 10;
         sb += linea + " WHILE INKEY$=\"\":WEND\n"; 
@@ -815,18 +816,18 @@ Piano.prototype.generarYGuardarPbString = function() {
     var play = "T255";    
     var duracionL1Ms = 900.0;    
 
-    // --- 1. GENERATE THE COMPLETE PLAY STRING ---
+    // --- 1. GENERAR LA CADENA PLAY COMPLETA ---
     for (var i = 0; i < this.grabacion.length; i++) {
         var n = this.grabacion[i];
         
-        // Calculate the duration factor L
+        // Calcular el factor de duración L
         var pb_L_factor = Math.round(duracionL1Ms / n.duracionMs);
         pb_L_factor = Math.max(1, Math.min(64, pb_L_factor));
 
         play += "L" + pb_L_factor;
 
         if (n.frecuencia > 0) {
-            // Calculate MIDI note and convert to PB note
+            // Calcular nota MIDI y convertir a nota PB
             var freqHz = Math.max(20.0, n.frecuencia);
             var midiNote = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
             var pbNote = Math.round(midiNote - 36.0);    
@@ -835,12 +836,12 @@ Piano.prototype.generarYGuardarPbString = function() {
             
             play += "N" + pbNote;
         } else {
-            // Pause
+            // Pausa
             play += "P";    
         }
     }
 
-    // --- 2. EXPORT ALWAYS WITH LINES (Original 'else' block) ---
+    // --- 2. EXPORTAR SIEMPRE CON LÍNEAS (Bloque 'else' original) ---
     this.logToConsole("Exporting to PowerBASIC line by line (PLAY string).");
     
     var maxLen = 70;    
@@ -851,17 +852,17 @@ Piano.prototype.generarYGuardarPbString = function() {
         var len = Math.min(maxLen, play.length - idx);
         var part = play.substring(idx, idx + len);
         
-        // Adjustment to avoid cutting an N, L, or P command in half
-        // Search for the start of a command at the end of the part
+        // Ajuste para evitar cortar un comando N, L o P a la mitad
+        // Buscar el inicio de un comando al final de la parte
         var lastCommandStart = part.search(/[LNP]\d*$/); 
         
         if (lastCommandStart > 0 && (idx + lastCommandStart) < play.length) {
-             // If we find an incomplete command at the end, shorten the part just before it.
+             // Si encontramos un comando incompleto al final, acortar la parte justo antes.
             len = lastCommandStart;
             part = play.substring(idx, idx + len);
         } else if (lastCommandStart === 0 && !firstPart) {
-             // If the line starts with a command (e.g., L64N60...), we don't cut it.
-             // This is automatically handled if the length is less than maxLen.
+             // Si la línea empieza con un comando (ej: L64N60...), no lo cortamos.
+             // Esto lo maneja automáticamente si la longitud es menor que maxLen.
         }
         
         if (firstPart) {
@@ -870,14 +871,14 @@ Piano.prototype.generarYGuardarPbString = function() {
         } else {
             sb += linea + " M$ = M$ + \"" + part + "\"\n";
         }
-        idx += part.length; // Use part.length for the actual length after adjustment
+        idx += part.length; // Usar part.length para la longitud real después del ajuste
         linea += 10;    
     }
 
     sb += linea + " PLAY M$\n";
     linea += 10;
     
-    // --- Key wait so execution doesn't end instantly (OPTIONAL) ---
+    // --- Espera de tecla para que la ejecución no termine al instante (OPCIONAL) ---
     sb += linea + " PRINT \"Press a key to finish...\"\n";
     linea += 10;
     sb += linea + " WHILE INKEY$=\"\":WEND\n";
@@ -887,7 +888,7 @@ Piano.prototype.generarYGuardarPbString = function() {
     sb += linea + " END\n";
 
 
-    // --- 3. STANDARDIZED FINAL MESSAGE ---
+    // --- 3. MENSAJE FINAL ESTANDARIZADO ---
     if (guardarArchivoComo(sb, FILENAME)) {
         this.logToConsole("Preparing to save basic file for PowerBasic");
     } else {
@@ -905,54 +906,54 @@ Piano.prototype.generarYGuardarZxBasic = function() {
 
     var sb = "10 REM MELOD8 by fitosoft ZX BASIC\n";
 
-    const LINEA_PROGRAMA_INICIO = 20;   // Line where the main program starts
-    const LINEA_DATA_INICIO = 90;       // Line where data starts
-    const LINEA_FIN = 1000;             // Line for STOP (if necessary)
+    const LINEA_PROGRAMA_INICIO = 20;   // Línea donde comienza el programa principal
+    const LINEA_DATA_INICIO = 90;       // Línea donde comienzan los datos
+    const LINEA_FIN = 1000;             // Línea para STOP (si es necesario)
     const MAX_FRAME_DURATION = 32767;
-    const PAIRS_PER_LINE = 8;         // Number of pairs per DATA line
-    const PAUSE_DATA_MARKER = 99;     // <--- Key marker for PAUSE (99)
+    const PAIRS_PER_LINE = 8;         // Número de pares por línea DATA
+    const PAUSE_DATA_MARKER = 99;     // <--- Marcador clave para PAUSE (99)
 
-    // Initialization of important variables
+    // Inicialización de variables importantes
     let dataLineNumber = LINEA_DATA_INICIO;
     let programLineNumber = LINEA_PROGRAMA_INICIO;
     
-    // Export file name (used for the log)
+    // Nombre de archivo de exportación (usado para el log)
     const fileName = "ZX.BAS";
 
     // ----------------------------------------------------
-    // DATA/READ EXPORT LOGIC (Compact and Fast)
+    // LÓGICA DE EXPORTACIÓN DATA/READ (Compacto y Rápido)
     // ----------------------------------------------------
     if (this.exportAsData) {
         this.logToConsole("Exporting to ZX with dynamic DATA/READ (8 pairs per line)...");
 
-        // Main program with dynamic GOTO
+        // Programa principal con GOTO dinámico
         sb += programLineNumber + " REM Playback initialization\n"; // 20
         programLineNumber += 10;
         sb += programLineNumber + " RESTORE " + LINEA_DATA_INICIO + "\n"; // 30
         programLineNumber += 10;
-        sb += programLineNumber + " READ P, D\n"; // 40 (RETURN POINT)
+        sb += programLineNumber + " READ P, D\n"; // 40 (PUNTO DE RETORNO)
         programLineNumber += 10;
         sb += programLineNumber + " IF P = -99 THEN STOP: REM End of data\n"; // 50
         programLineNumber += 10;
-        // Line 60: If it's PAUSE (99), it executes PAUSE and goes back to 40 (READ)
+        // Línea 60: Si es PAUSE (99), ejecuta PAUSE y vuelve a 40 (READ)
         sb += programLineNumber + " IF P = " + PAUSE_DATA_MARKER + " THEN PAUSE D: GOTO " + (programLineNumber - 20) + "\n"; // 60 (GOTO 40)
         programLineNumber += 10;
-        // Line 70: If it's a note, it executes BEEP and goes back to 40 (READ)
+        // Línea 70: Si es una nota, ejecuta BEEP y vuelve a 40 (READ)
         sb += programLineNumber + " BEEP D, P: GOTO " + (programLineNumber - 30) + "\n"; // 70 (GOTO 40)
         programLineNumber += 10;
         sb += programLineNumber + " REM Continue\n"; // 80
 
-        // Data line generation
+        // Generación de líneas de datos
         let currentDataLine = dataLineNumber + " DATA ";
         let pairCount = 0;
 
         for (let i = 0; i < this.grabacion.length; i++) {
             const n = this.grabacion[i];
-            let P = 0;  // Pitch (99 for pause)
-            let D = 0;  // Duration
+            let P = 0;  // Pitch (99 para pausa)
+            let D = 0;  // Duración
 
             if (n.frecuencia > 0) {
-                // Calculation for BEEP (Note)
+                // Cálculo para BEEP (Nota)
                 let durSeg = n.duracionMs / 1000.0;
                 let freqHz = Math.max(20.0, n.frecuencia);
                 let semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
@@ -960,8 +961,8 @@ Piano.prototype.generarYGuardarZxBasic = function() {
                 P = Math.max(-60, Math.min(60, P));
                 D = durSeg.toFixed(3);
             } else {
-                // Calculation for PAUSE 
-                // *** P is now 99 (PAUSE_DATA_MARKER) ***
+                // Cálculo para PAUSE 
+                // *** P ahora es 99 (PAUSE_DATA_MARKER) ***
                 P = PAUSE_DATA_MARKER; 
                 let durFrames = Math.round(n.duracionMs / 20.0);
                 D = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
@@ -972,7 +973,7 @@ Piano.prototype.generarYGuardarZxBasic = function() {
             pairCount++;
 
             if (pairCount === PAIRS_PER_LINE) {
-                // Remove the trailing comma and add the DATA line
+                // Eliminar la coma final y añadir la línea DATA
                 sb += currentDataLine.slice(0, -1) + "\n";
                 dataLineNumber += 10;
                 currentDataLine = dataLineNumber + " DATA ";
@@ -980,17 +981,17 @@ Piano.prototype.generarYGuardarZxBasic = function() {
             }
         }
 
-        // Add the last DATA line if it is not complete
+        // Añadir la última línea DATA si no está completa
         if (pairCount > 0) {
             sb += currentDataLine.slice(0, -1) + "\n";
             dataLineNumber += 10;
         }
 
-        // End marker
+        // Marcador de fin
         sb += dataLineNumber + " DATA -99,0\n";
             
     } else {
-        // Line by line export logic (unchanged)
+        // Lógica de exportación línea por línea (sin cambios)
         this.logToConsole("Exporting to ZX line by line (BEEP/PAUSE Format)...");
         let linea = LINEA_PROGRAMA_INICIO;
 
@@ -1011,10 +1012,10 @@ Piano.prototype.generarYGuardarZxBasic = function() {
             linea += 10;
         }
     }
-    // End of main code
+    // Fin del código principal
     sb += LINEA_FIN + " STOP\n";
 
-    // Show the actual exported file name
+    // Mostrar el nombre de archivo real exportado
     if (guardarArchivoComo(sb, fileName)) {
         this.logToConsole("File " + fileName + " generated successfully.");
     } else {
@@ -1023,24 +1024,24 @@ Piano.prototype.generarYGuardarZxBasic = function() {
 };
 
 /**
- * NEW: Adds listeners for the virtual keyboard to work on click or touch.
+ * NEW: Añade listeners para que el teclado virtual funcione al hacer clic o tocar.
  */
 Piano.prototype.setupVirtualKeyboardListeners = function() {
     var self = this;
     var keys = document.querySelectorAll('#keyboard .key');
     
     keys.forEach(function(keyElement) {
-        var noteKey = keyElement.getAttribute('data-code'); // The key code (e.g., 'KeyA')
+        var noteKey = keyElement.getAttribute('data-code'); // El código de tecla (ej: 'KeyA')
 
-        // Only map keys that have an assigned frequency
+        // Solo mapear teclas que tienen una frecuencia asignada
         if (!self.frecuenciaPorTecla.hasOwnProperty(noteKey)) {
              return; 
         }
 
-        // --- MOUSE DOWN (equivalent to keydown) ---
+        // --- MOUSE DOWN (equivalente a keydown) ---
         keyElement.addEventListener('mousedown', function(event) {
             event.preventDefault(); 
-            // Simulate event.repeat = false
+            // Simular event.repeat = false
             if (self.osciladoresActivos.hasOwnProperty(noteKey)) return;
 
             keyElement.classList.add('pressed');
@@ -1048,7 +1049,7 @@ Piano.prototype.setupVirtualKeyboardListeners = function() {
             self.updateUIStatus();
         });
 
-        // --- MOUSE UP (equivalent to keyup) ---
+        // --- MOUSE UP (equivalente a keyup) ---
         keyElement.addEventListener('mouseup', function(event) {
             keyElement.classList.remove('pressed');
             if (self.tiempoInicioPulsacion.hasOwnProperty(noteKey)) {
@@ -1057,7 +1058,7 @@ Piano.prototype.setupVirtualKeyboardListeners = function() {
             }
         });
         
-        // --- MOUSE OUT (stop sound if released outside the key) ---
+        // --- MOUSE OUT (detener sonido si se suelta fuera de la tecla) ---
         keyElement.addEventListener('mouseout', function(event) {
             if (self.tiempoInicioPulsacion.hasOwnProperty(noteKey) && keyElement.classList.contains('pressed')) {
                 keyElement.classList.remove('pressed');
@@ -1066,15 +1067,15 @@ Piano.prototype.setupVirtualKeyboardListeners = function() {
             }
         });
         
-        // --- TOUCH EVENTS for mobile support ---
+        // --- TOUCH EVENTS para soporte móvil ---
         keyElement.addEventListener('touchstart', function(event) {
              event.preventDefault(); 
-             // IMPORTANT: Avoid adding 'pressed' here since the :active pseudo-class in CSS handles the visual
-             // The JS is only needed to manage the sound state and prevent accidental repeats.
+             // IMPORTANTE: Evitar añadir 'pressed' aquí ya que la pseudo-clase :active en CSS maneja el visual
+             // El JS solo es necesario para manejar el estado del sonido y prevenir repeticiones accidentales.
              
              if (self.osciladoresActivos.hasOwnProperty(noteKey)) return;
              
-             // Although :active helps visually, we need the JS class to manage the release on touchend
+             // Aunque :active ayuda visualmente, necesitamos la clase JS para manejar el release en touchend
              keyElement.classList.add('pressed');
              
              self.tocarNota(noteKey);
@@ -1094,27 +1095,28 @@ Piano.prototype.setupVirtualKeyboardListeners = function() {
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Piano initialization and DATA/READ checkbox handling
+    // Inicialización del Piano y manejo del checkbox de DATA/READ
     var logArea = document.getElementById('log-area');
-    // ID CORRECTION: "export-as-data"
+    // ID CORRECCIÓN: "export-as-data"
     var checkbox = document.getElementById('export-as-data');
     var fileInput = document.getElementById('file-input');
     
     if (logArea) {
         window.piano = new Piano();
         
-        // --- NEW: Initialize the virtual keyboard ---
+        // --- NEW: Inicializar el teclado virtual ---
         piano.setupVirtualKeyboardListeners(); 
         // ---------------------------------------------
 
         if (checkbox) {
-            // Initialize state and add listener
+            // Inicializar el estado y añadir el listener
             piano.setExportAsData(checkbox.checked);
-            // The listener is already in the HTML, no need to duplicate it here
+            // El listener ya está en el HTML, no es necesario duplicarlo aquí
         }
 
-        // Handle MUS file loading
+        // Manejar la carga de archivos MUS
         if (fileInput) {
+            // ESTE ES EL LISTENER CORRECTO QUE SE MANTIENE (SOLUCIONA LA DUPLICIDAD)
             fileInput.addEventListener('change', function() {
                 piano.cargarMelodiaDesdeInput(this.files);
             });
@@ -1122,7 +1124,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     } else {
         console.error("The element with id 'log-area' is required to initialize the piano.");
-        // If there's no log-area, initialize without UI for console testing
+        // Si no hay log-area, inicializar sin UI para pruebas de consola
         if (!window.piano) window.piano = new Piano(); 
     }
 });
