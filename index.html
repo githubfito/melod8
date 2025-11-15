@@ -1,14 +1,17 @@
-<link rel="stylesheet" href="style.css"> 
-
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MelodEight Web Piano</title> 
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body>
 
     <h1>
         MELOD8 Web Piano
         <span id="header-details">
-            <span id="credit-by-fito">
-                <a href="https://github.com/githubfito/melod8" target="_blank">by fito</a>
-            </span> 
-            <span id="version-text">v1.04</span>
+            <span id="credit-by-fito">by fito</span> 
+            <span id="version-text"></span>
         </span>
     </h1>
 
@@ -35,7 +38,10 @@
         <div class="key black-key" data-code="KeyT">T</div>
         <div class="key black-key" data-code="KeyY">Y</div>
         <div class="key black-key" data-code="KeyU">U</div>
-        <div class="key black-key" data-code="KeyO">O</div> <div class="key black-key" data-code="KeyP">P</div> <div class="key black-key" data-code="BracketRight">[ ]</div>
+        <div class="key black-key" data-code="KeyI">I</div>
+        <div class="key black-key" data-code="KeyO">O</div>
+        <div class="key black-key" data-code="KeyP">P</div>
+        <div class="key black-key" data-code="KeyOemOpenBrackets">[ {</div>
     </div>
     <div id="controls">
         <button onclick="piano.handleCommand('0')">[0] Clear</button>
@@ -51,7 +57,7 @@
         <button onclick="piano.handleCommand('.')">[ . ] Octave +</button>
         <button onclick="piano.handleCommand('m')">[M] Help</button>
         <input type="checkbox" id="export-as-data" onchange="window.piano.setExportAsData(this.checked)">
-        <label for="for-export-as-data">Export as DATA</label>
+        <label for="export-as-data">Export as DATA</label>
     </div>
 
     <input type="file" id="file-input" accept=".mus" style="display:none;">
@@ -60,4 +66,6 @@
     <pre id="log-area"></pre>
 
     <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.min.js"></script>
-    <script src="piano.js"></script>
+    <script src="piano.js"></script> 
+</body>
+</html>
