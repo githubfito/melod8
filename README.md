@@ -7,7 +7,7 @@ Play your melodies online (beta) on your QWERTY keyboard (white and black keys) 
 Forget about searching for the notes of your melody one by one. Play the melody and when you have it, press generate file.
 
 Try it here:
-https://githubfito.github.io/melod8/
+<a href="https://githubfito.github.io/melod8/" target="_blank" rel="noopener noreferrer">Ir a MELOD8 (abre en nueva pestaña)</a>
 
 * Example of basic code generated for Amstrad CPC:
 
