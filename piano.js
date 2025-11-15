@@ -63,14 +63,21 @@ function stopBeep(audioNode, durationMs, instrument) {
         
         // 2. Calcular el tiempo total de sonido (pulsación + release)
         var totalSoundTimeSec = durationSec + releaseTime; 
+        var totalSoundTimeMs = durationMs + (releaseTime * 1000); 
         
         // Aplicar el RELEASE: Rampa exponencial desde sustainLevel hasta cero
         audioNode.gain.gain.cancelScheduledValues(now);
         audioNode.gain.gain.setValueAtTime(instrument.sustainLevel, releaseStartTime); 
         audioNode.gain.gain.exponentialRampToValueAtTime(0.0001, now + totalSoundTimeSec); 
         
-        // CRÍTICO: Programar la parada del oscilador usando Web Audio API (más fiable que setTimeout)
-        audioNode.osc.stop(now + totalSoundTimeSec); 
+        // Detener el oscilador cuando el sonido ha decaído completamente (Esto se ejecuta en segundo plano)
+        setTimeout(function() {
+            try {
+                audioNode.osc.stop(); 
+            } catch (e) {
+                // Ya estaba detenido
+            }
+        }, totalSoundTimeMs); 
         
         // --- 2. SINCRONIZACIÓN DE LA CADENA DE REPRODUCCIÓN ---
         return new Promise(function(resolve) {
@@ -124,8 +131,18 @@ function Piano() {
     this.exportAsData = false; 
 
     // --- NEW: Version Constant ---
-    this.VERSION = "1.04"; 
+    this.VERSION = "1.05"; // <-- VERSIÓN ACTUAL
 
+    // --- NEW: Version History Constant ---
+    this.VERSIONES = 
+"### MELOD8 Web Piano - Version History ###\n" + 
+" 1.05 (2025-11-15): Fix: Key mapping for black keys was updated to remove 'KeyI' and reassign remaining notes to a contiguous 8-key sequence.\n" +
+" 1.04 (2025-11-14): Fix: Eliminated duplicate file loading when pressing [1].\n" +
+" 1.03 (2025-11-14): Feature: Added 'by fito' credit to the header.\n" +
+" 1.02 (2025-11-14): Fix: Added :active state to keys for better mobile feedback and corrected black key press color.\n" +
+" 1.01 (2025-11-14): Translate to english and restore Z/X instrument change buttons.\n" +
+" 1.00 (2025-11-14): Initial release with ADSR control and multi-format BASIC export.\n";
+    
     // --- INSTRUMENT STATE ---
     this.instruments = this.initializeInstruments();
     this.instrumentIndex = 0; // Instrumento Inicial: Classic Piano
@@ -220,22 +237,23 @@ Piano.prototype.inicializarMapasDeNotas = function() {
     // Usamos event.code (código físico) en lugar de event.key (caracter).
     // Esto asegura que la nota se active independientemente de la distribución del teclado.
 
-    // Teclas Blancas:
+    // Correspondencia de posiciones (Teclado QWERTY estándar):
+    // Teclas Blancas: 'a','s','d','f','g','h','j','k','l',';',''','#'
+    // En teclado QWERTY español: 'a','s','d','f','g','h','j','k','l','ñ','´','Ç'
     var keysBlancasCode = [
         'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 
         'KeyK', 'KeyL', 'Semicolon', 'Quote', 'Backslash' 
     ]; 
     var frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784];
 
-    // --- CORRECCIÓN CRÍTICA: Se eliminó KeyI de la lista de códigos ---
+    // MODIFICADO V1.05: Se eliminó 'KeyI' y la nota G#5 (831 Hz) para usar una secuencia de 8 teclas negras.
+    // Teclas Negras: 'w','e', 't','y','u', 'o','p', '[' (8 teclas)
     var keysNegrasCode = [
         'KeyW', 'KeyE', 'KeyT', 'KeyY', 'KeyU', 
-        'KeyO',           // NUEVO: Frecuencia de la antigua KeyI (554 Hz)
-        'KeyP',           // NUEVO: Frecuencia de la antigua KeyO (622 Hz)
-        'BracketRight'    // Frecuencia de la antigua KeyP (740 Hz)
+        'KeyO', 'KeyP', 'KeyOemOpenBrackets' 
     ];
-    // Frecuencias correspondientes a las 8 teclas negras (se eliminó la frecuencia final)
-    var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740];
+    // Frecuencias: C#4, D#4, F#4, G#4, A#4, C#5, D#5, F#5 (8 frecuencias)
+    var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740]; // Eliminado 831 Hz
 
     var self = this;
     keysBlancasCode.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecBlancas[i]; });
@@ -243,6 +261,8 @@ Piano.prototype.inicializarMapasDeNotas = function() {
 };
 
 // ----------------------------------------------------------------------------------------------------------------
+
+// ... (Métodos anteriores se mantienen)
 
 Piano.prototype.handleKeyDown = function(event) {
     // Usar event.code para notas (posiciones físicas)
@@ -308,6 +328,8 @@ Piano.prototype.handleKeyDown = function(event) {
         this.handleCommand(commandKey);
     }
 };
+
+// ... (El resto del código se mantiene)
 
 // ----------------------------------------------------------------------------------------------------------------
 
@@ -402,18 +424,23 @@ Piano.prototype.detenerYGrabarNota = function(key) { // 'key' es ahora el 'code'
     var currentInstrument = this.instruments[this.instrumentIndex];
 
     if (notaActiva && notaActiva.node) {
+        // ... (La lógica de RELEASE y setTimeout se mantiene igual)
+
         var audioNode = notaActiva.node;
         var now = audioContext.currentTime;
         var releaseTime = currentInstrument.release; 
-        
-        // Aplica el RELEASE de volumen
+
         audioNode.gain.gain.cancelScheduledValues(now); 
         audioNode.gain.gain.setValueAtTime(audioNode.gain.gain.value, now); 
         audioNode.gain.gain.exponentialRampToValueAtTime(0.0001, now + releaseTime);
 
-        // FIX CRÍTICO: Usar Web Audio API para programar la parada del oscilador.
-        // Esto es mucho más fiable que el setTimeout de JavaScript.
-        audioNode.osc.stop(now + releaseTime); // <-- **CORRECCIÓN DE ESTABILIDAD**
+        setTimeout(function() {
+            try {
+                audioNode.osc.stop(); 
+            } catch (e) {
+                // Ya estaba detenido
+            }
+        }, releaseTime * 1000);
 
         delete this.osciladoresActivos[key];
     }
@@ -539,14 +566,8 @@ Piano.prototype.eliminarPausasFinales = function() {
 };
 
 Piano.prototype.mostrarAyudaCompleta = function() {
-    var helpText = "\n" +
-"### MELOD8 Web Piano - Version History ###\n" + 
-" 1.04 (2025-11-14): Fix: Eliminated duplicate file loading when pressing [1].\n" +
-" 1.03 (2025-11-14): Feature: Added 'by fito' credit to the header.\n" +
-" 1.02 (2025-11-14): Fix: Added :active state to keys for better mobile feedback and corrected black key press color.\n" +
-" 1.01 (2025-11-14): Translate to english and restore Z/X instrument change buttons.\n" +
-" 1.00 (2025-11-14): Initial release with ADSR control and multi-format BASIC export.\n" +
-"\n" +
+    // *** UTILIZANDO LA NUEVA CONSTANTE this.VERSIONES ***
+    var helpText = this.VERSIONES + "\n" +
 "RECORDING AND PLAYBACK COMMANDS:\n" +
 " [0]: Clear current melody.\n" +
 " [1]: Load melody from a file (.MUS).\n" +
@@ -1090,6 +1111,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // --- NEW: Inicializar el teclado virtual ---
         piano.setupVirtualKeyboardListeners(); 
+        // ---------------------------------------------
+
+        // --- NEW: Actualizar la versión en el HTML ---
+        var versionTextElement = document.getElementById('version-text');
+        if (versionTextElement) {
+            versionTextElement.textContent = "v" + piano.VERSION;
+        }
         // ---------------------------------------------
 
         if (checkbox) {
