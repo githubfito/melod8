@@ -62,7 +62,8 @@ You can use the fantastic Amstrad emulator provided by ‘benchmarko’- Marco V
 https://benchmarko.github.io/CPCBasic/index.html
 
 -TESTING ZX-
-I cannot find an emulator that allows you to paste basic text into it and run it online, but from here you can generate the TAP image from the generated ZX .bas file. Thanks to Remysharp https://zx.remysharp.com/help/
+I cannot find an emulator that allows you to paste basic text into it and run it online, but from here you can generate the TAP image from the generated ZX .bas file. Thanks to Remysharp
+https://zx.remysharp.com/bas/
 
 If you generate basic audio files, remember to mention MELOD8 and the author (fitosoft).
 
