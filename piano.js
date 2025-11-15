@@ -131,11 +131,12 @@ function Piano() {
     this.exportAsData = false; 
 
     // --- NEW: Version Constant ---
-    this.VERSION = "1.05"; // <-- VERSIÓN ACTUAL
-
+    this.VERSION = "1.06"; // <-- VERSIÓN ACTUALIZADA
+    
     // --- NEW: Version History Constant ---
     this.VERSIONES = 
 "### MELOD8 Web Piano - Version History ###\n" + 
+" 1.06 (2025-11-15): Fix: Final visual/functional alignment: Last black key moved to 'BracketRight' (]) code; KeyO and KeyP positions corrected; Keyboard container width fixed to 722px to prevent visual overflow.\n" +
 " 1.05 (2025-11-15): Fix: Key mapping for black keys was updated to remove 'KeyI' and reassign remaining notes to a contiguous 8-key sequence.\n" +
 " 1.04 (2025-11-14): Fix: Eliminated duplicate file loading when pressing [1].\n" +
 " 1.03 (2025-11-14): Feature: Added 'by fito' credit to the header.\n" +
@@ -188,10 +189,13 @@ Piano.prototype.updateUIStatus = function() {
     var nc = document.getElementById('note-count');
     var dm = document.getElementById('duration-ms');
     var fn = document.getElementById('file-name');
+    var vn = document.getElementById('version-text'); // NEW: Versión
+    
     if (oe) oe.textContent = "x" + this.octavaFactor[this.indiceOctavaActual].toFixed(2);
     if (nc) nc.textContent = this.grabacion.length;
     if (dm) dm.textContent = this.duracionPredeterminadaMs; 
     if (fn) fn.textContent = this.ultimoArchivoProcesado; 
+    if (vn) vn.textContent = "v" + this.VERSION; // NEW: Actualizar Versión
 };
 
 /**
@@ -235,25 +239,20 @@ Piano.prototype.initializeInstruments = function() {
 Piano.prototype.inicializarMapasDeNotas = function() {
     // [MODIFICACIÓN CRÍTICA]
     // Usamos event.code (código físico) en lugar de event.key (caracter).
-    // Esto asegura que la nota se active independientemente de la distribución del teclado.
-
-    // Correspondencia de posiciones (Teclado QWERTY estándar):
-    // Teclas Blancas: 'a','s','d','f','g','h','j','k','l',';',''','#'
-    // En teclado QWERTY español: 'a','s','d','f','g','h','j','k','l','ñ','´','Ç'
     var keysBlancasCode = [
         'KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 
         'KeyK', 'KeyL', 'Semicolon', 'Quote', 'Backslash' 
     ]; 
     var frecBlancas = [262, 294, 330, 349, 392, 440, 494, 523, 587, 659, 698, 784];
 
-    // MODIFICADO V1.05: Se eliminó 'KeyI' y la nota G#5 (831 Hz) para usar una secuencia de 8 teclas negras.
-    // Teclas Negras: 'w','e', 't','y','u', 'o','p', '[' (8 teclas)
+    // MODIFICADO V1.06: Se usa 'BracketRight' para la última tecla negra.
+    // Teclas Negras: 'w','e', 't','y','u', 'o','p', 'BracketRight' (8 teclas)
     var keysNegrasCode = [
         'KeyW', 'KeyE', 'KeyT', 'KeyY', 'KeyU', 
-        'KeyO', 'KeyP', 'KeyOemOpenBrackets' 
+        'KeyO', 'KeyP', 'BracketRight' // ¡Actualizado!
     ];
     // Frecuencias: C#4, D#4, F#4, G#4, A#4, C#5, D#5, F#5 (8 frecuencias)
-    var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740]; // Eliminado 831 Hz
+    var frecNegras = [277, 311, 370, 415, 466, 554, 622, 740]; 
 
     var self = this;
     keysBlancasCode.forEach(function(key, i) { self.frecuenciaPorTecla[key] = frecBlancas[i]; });
@@ -261,8 +260,6 @@ Piano.prototype.inicializarMapasDeNotas = function() {
 };
 
 // ----------------------------------------------------------------------------------------------------------------
-
-// ... (Métodos anteriores se mantienen)
 
 Piano.prototype.handleKeyDown = function(event) {
     // Usar event.code para notas (posiciones físicas)
@@ -329,9 +326,7 @@ Piano.prototype.handleKeyDown = function(event) {
     }
 };
 
-// ... (El resto del código se mantiene)
-
-// ----------------------------------------------------------------------------------------------------------------
+// ---
 
 Piano.prototype.handleKeyUp = function(event) {
     // [MODIFICACIÓN CRÍTICA]
@@ -962,8 +957,8 @@ Piano.prototype.generarYGuardarZxBasic = function() {
                 let durSeg = n.duracionMs / 1000.0;
                 let freqHz = Math.max(20.0, n.frecuencia);
                 let semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-                P = Math.round(semitones - 69.0);
-                P = Math.max(-60, Math.min(60, P));
+                let pitch = Math.round(semitones - 69.0);
+                P = Math.max(-60, Math.min(60, pitch));
                 D = durSeg.toFixed(3);
             } else {
                 // Cálculo para PAUSE 
@@ -1113,11 +1108,8 @@ document.addEventListener('DOMContentLoaded', function() {
         piano.setupVirtualKeyboardListeners(); 
         // ---------------------------------------------
 
-        // --- NEW: Actualizar la versión en el HTML ---
-        var versionTextElement = document.getElementById('version-text');
-        if (versionTextElement) {
-            versionTextElement.textContent = "v" + piano.VERSION;
-        }
+        // --- NEW: Actualizar la versión en el HTML (Se mueve al updateUIStatus) ---
+        piano.updateUIStatus();
         // ---------------------------------------------
 
         if (checkbox) {
