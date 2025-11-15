@@ -9,40 +9,38 @@ h1, h2, h3 {
     color: #008000;
 }
 
-/* --- NUEVO: Estilo para el encabezado H1 para usar Flexbox y justificar --- */
+/* --- ESTILO DE ENCABEZADO Y CRÉDITO --- */
 h1 {
-    display: flex; /* Habilita Flexbox */
-    justify-content: space-between; /* Distribuye el espacio entre los elementos: "MELOD8 Web Piano" a la izquierda, el resto a la derecha */
-    align-items: flex-end; /* Alinea los elementos a la parte inferior del h1 si tienen diferente tamaño de fuente */
-    margin-bottom: 5px; /* Reduce el margen inferior para que el crédito esté más cerca del título */
-    padding-right: 10px; /* Pequeño espacio a la derecha */
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-end; 
+    margin-bottom: 5px; 
+    padding-right: 10px; 
 }
 
 /* Contenedor del crédito y la versión */
 #header-details {
-    font-size: 0.6em; /* Fuente más pequeña que el h1 */
+    font-size: 0.6em; 
     font-weight: normal; 
-    white-space: nowrap; /* Evita que el texto se parta en dos líneas */
-    text-align: right; /* Asegura la justificación a la derecha */
+    white-space: nowrap; 
+    text-align: right; 
 }
 
 #credit-by-fito {
-    color: #006400; /* Color más oscuro para el crédito */
+    color: #006400; 
     padding-right: 5px;
 }
 
-/* MODIFICACIÓN: Estilo para el enlace dentro del #credit-by-fito */
+/* CRÍTICO: Estilo para el enlace (target="_blank") */
 #credit-by-fito a {
-    color: #006400; /* Hereda el color del span */
-    text-decoration: none; /* Elimina el subrayado por defecto */
+    color: #006400; 
+    text-decoration: none; 
     font-weight: normal;
 }
 
 #credit-by-fito a:hover {
-    text-decoration: underline; /* Añade subrayado al pasar el ratón para indicar que es un enlace */
+    text-decoration: underline; 
 }
-/* -------------------------------------------------------------------------- */
-
 
 #version-text {
     font-weight: bold;
@@ -78,7 +76,7 @@ h1 {
 /* --- VIRTUAL KEYBOARD STYLES --- */
 #keyboard {
     position: relative;
-    width: 740px; /* MODIFICADO: Aumentado de 720px a 740px para asegurar espacio para la última tecla negra y sus sombras. */
+    width: 720px; /* 12 teclas * 60px */
     height: 150px; 
     margin: 20px auto;
     border: 1px solid #000;
@@ -93,7 +91,7 @@ h1 {
     transition: transform 0.05s ease, background-color 0.1s;
     display: flex;
     justify-content: center;
-    align-items: flex-end; /* CRÍTICO: Mantiene la letra en la parte inferior */
+    align-items: flex-end; 
     padding-bottom: 5px; 
     font-size: 0.8em;
     user-select: none; 
@@ -131,31 +129,23 @@ h1 {
 }
 
 
-/* Posicionamiento de las teclas negras corregido */
-/* La posición 'left' se calcula como el inicio de la tecla blanca de la izquierda + 40px para centrarla entre las dos blancas */
-/* Bloque de 2 teclas negras */
-[data-code="KeyW"] { left: 40px; } /* Entre A (0px) y S (60px) */
-[data-code="KeyE"] { left: 100px; } /* Entre S (60px) y D (120px) */
-/* D (120px) es una tecla blanca sin tecla negra a su derecha */
+/* Posicionamiento de las teclas negras (Patrón: 2-3-2-1) */
 
-/* Bloque de 3 teclas negras */
-[data-code="KeyT"] { left: 220px; } /* Entre F (180px) y G (240px) */
-[data-code="KeyY"] { left: 280px; } /* Entre G (240px) y H (300px) */
-[data-code="KeyU"] { left: 340px; } /* Entre H (300px) y J (360px) */
-/* J (360px) es una tecla blanca sin tecla negra a su derecha */
+/* Grupo 1 (2 teclas) */
+[data-code="KeyW"] { left: 40px; } /* Entre A(0) y S(60) */
+[data-code="KeyE"] { left: 100px; } /* Entre S(60) y D(120) */
 
-/* Bloque de 2 teclas negras */
-[data-code="KeyI"] { left: 460px; } /* Entre K (420px) y L (480px) */
-[data-code="KeyO"] { left: 520px; } /* Entre L (480px) y ; (Ñ) (540px) */
-/* ; (Ñ) (540px) es una tecla blanca sin tecla negra a su derecha */
+/* Grupo 2 (3 teclas) */
+[data-code="KeyT"] { left: 220px; } /* Entre F(180) y G(240) */
+[data-code="KeyY"] { left: 280px; } /* Entre G(240) y H(300) */
+[data-code="KeyU"] { left: 340px; } /* Entre H(300) y J(360) */
 
-/* Última tecla negra (en este diseño, correspondería al final de la octava) */
-/* Si el teclado tuviera más teclas blancas, esta "P" sería parte de un nuevo bloque de 3.
-   Considerando las 12 teclas blancas actuales, esta es la última tecla negra del patrón 2-3-2-3.
-   Asumiendo que ' (´)' es la siguiente blanca después de '; (Ñ)', entonces 'P' va entre ' (´)' y '\ (Ç)'.
-*/
-[data-code="KeyP"] { left: 640px; } /* Entre ' (´) (600px) y \ (Ç) (660px) */
-/* Se elimina el data-code="KeyOemOpenBrackets" si el HTML tiene 9 teclas negras, ya que P debería ser la última de este bloque */
+/* Grupo 3 (2 teclas) */
+[data-code="KeyO"] { left: 460px; } /* RESTAURADO: Entre K(420) y L(480) */
+[data-code="KeyP"] { left: 520px; } /* Entre L(480) y ;(540) */
+
+/* Grupo 4 (1 tecla) - Final del teclado */
+[data-code="BracketRight"] { left: 640px; } /* Entre '(600) y \(660) */
 
 
 /* EFECTOS DE PULSACIÓN (Press/Active state) */
@@ -171,4 +161,3 @@ h1 {
 .black-key.pressed, .black-key:active {
     background-color: #1a1a1a !important; 
 }
-
