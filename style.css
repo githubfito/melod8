@@ -78,7 +78,7 @@ h1 {
 /* --- VIRTUAL KEYBOARD STYLES --- */
 #keyboard {
     position: relative;
-    width: 720px; /* 12 teclas blancas * 60px/tecla = 720px */
+    width: 740px; /* MODIFICADO: Aumentado de 720px a 740px para asegurar espacio para la última tecla negra y sus sombras. */
     height: 150px; 
     margin: 20px auto;
     border: 1px solid #000;
@@ -171,3 +171,4 @@ h1 {
 .black-key.pressed, .black-key:active {
     background-color: #1a1a1a !important; 
 }
+
