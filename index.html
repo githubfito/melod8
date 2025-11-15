@@ -1,160 +1,73 @@
-body {
-    font-family: monospace;
-    background-color: #e0ffe0; 
-    color: #000;
-    padding: 20px;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MelodEight Web Piano v1.04</title> 
+    <link rel="stylesheet" href="style.css"> 
+</head>
+<body>
 
-h1, h2, h3 {
-    color: #008000;
-}
+    <h1>
+        MELOD8 Web Piano
+        <span id="header-details">
+            <span id="credit-by-fito">
+                <a href="https://github.com/githubfito/melod8" target="_blank">by fito</a>
+            </span> 
+            <span id="version-text">v1.04</span>
+        </span>
+    </h1>
 
-/* --- NUEVO: Estilo para el encabezado H1 para usar Flexbox y justificar --- */
-h1 {
-    display: flex; /* Habilita Flexbox */
-    justify-content: space-between; /* Distribuye el espacio entre los elementos: "MELOD8 Web Piano" a la izquierda, el resto a la derecha */
-    align-items: flex-end; /* Alinea los elementos a la parte inferior del h1 si tienen diferente tamaño de fuente */
-    margin-bottom: 5px; /* Reduce el margen inferior para que el crédito esté más cerca del título */
-    padding-right: 10px; /* Pequeño espacio a la derecha */
-}
+    <div id="status-line">
+        Octave: <span id="octave-factor">x1.00</span> | Notes: <span id="note-count">0</span> | Duration: <span id="duration-ms">150</span> ms | File: <span id="file-name">SONG.MUS</span>
+    </div>
+    
+    <div id="keyboard">
+        <div class="key white-key" data-code="KeyA">A</div>
+        <div class="key white-key" data-code="KeyS">S</div>
+        <div class="key white-key" data-code="KeyD">D</div>
+        <div class="key white-key" data-code="KeyF">F</div>
+        <div class="key white-key" data-code="KeyG">G</div>
+        <div class="key white-key" data-code="KeyH">H</div>
+        <div class="key white-key" data-code="KeyJ">J</div>
+        <div class="key white-key" data-code="KeyK">K</div>
+        <div class="key white-key" data-code="KeyL">L</div>
+        <div class="key white-key" data-code="Semicolon">; (Ñ)</div>
+        <div class="key white-key" data-code="Quote">' (´)</div>
+        <div class="key white-key" data-code="Backslash">\ (Ç)</div>
 
-/* Contenedor del crédito y la versión */
-#header-details {
-    font-size: 0.6em; /* Fuente más pequeña que el h1 */
-    font-weight: normal; 
-    white-space: nowrap; /* Evita que el texto se parta en dos líneas */
-    text-align: right; /* Asegura la justificación a la derecha */
-}
+        <div class="key black-key" data-code="KeyW">W</div>
+        <div class="key black-key" data-code="KeyE">E</div>
+        <div class="key black-key" data-code="KeyT">T</div>
+        <div class="key black-key" data-code="KeyY">Y</div>
+        <div class="key black-key" data-code="KeyU">U</div>
+        <div class="key black-key" data-code="KeyI">I</div>
+        <div class="key black-key" data-code="KeyO">O</div>
+        <div class="key black-key" data-code="KeyP">P</div>
+        <div class="key black-key" data-code="KeyOemOpenBrackets">[ {</div>
+    </div>
+    <div id="controls">
+        <button onclick="piano.handleCommand('0')">[0] Clear</button>
+        <button onclick="piano.handleCommand('1')">[1] Load (.MUS)</button>
+        <button onclick="piano.handleCommand('2')">[2] Save (.MUS)</button>
+        <button onclick="piano.handleCommand('3')">[3] Play</button>
+        <button onclick="piano.handleCommand('4')">[4] CPC BASIC</button>
+        <button onclick="piano.handleCommand('5')">[5] PB BASIC</button>
+        <button onclick="piano.handleCommand('6')">[6] ZX BASIC</button>
+        <button onclick="piano.changeInstrument(-1)">[Z] Instrument -</button> 
+        <button onclick="piano.changeInstrument(1)">[X] Instrument +</button>  
+        <button onclick="piano.handleCommand(',')">[ , ] Octave -</button>
+        <button onclick="piano.handleCommand('.')">[ . ] Octave +</button>
+        <button onclick="piano.handleCommand('m')">[M] Help</button>
+        <input type="checkbox" id="export-as-data" onchange="window.piano.setExportAsData(this.checked)">
+        <label for="export-as-data">Export as DATA</label>
+    </div>
 
-#credit-by-fito {
-    color: #006400; /* Color más oscuro para el crédito */
-    padding-right: 5px;
-}
+    <input type="file" id="file-input" accept=".mus" style="display:none;">
 
-/* MODIFICACIÓN: Estilo para el enlace dentro del #credit-by-fito */
-#credit-by-fito a {
-    color: #006400; /* Hereda el color del span */
-    text-decoration: none; /* Elimina el subrayado por defecto */
-    font-weight: normal;
-}
+    <h2>System Log</h2>
+    <pre id="log-area"></pre>
 
-#credit-by-fito a:hover {
-    text-decoration: underline; /* Añade subrayado al pasar el ratón para indicar que es un enlace */
-}
-/* -------------------------------------------------------------------------- */
-
-
-#version-text {
-    font-weight: bold;
-}
-/* -------------------------------------------------------------------------- */
-
-
-#status-line {
-    background-color: #006400; 
-    color: #fff;
-    padding: 5px;
-    margin-bottom: 20px;
-    font-weight: bold;
-}
-
-#log-area {
-    background-color: #fff;
-    border: 1px solid #008000;
-    height: 250px; 
-    overflow-y: scroll; 
-    padding: 10px;
-}
-
-#controls button {
-    padding: 10px 15px;
-    margin-right: 10px;
-    margin-bottom: 10px;
-    background-color: #aaffaa;
-    border: 1px solid #008000;
-    cursor: pointer;
-}
-
-/* --- VIRTUAL KEYBOARD STYLES --- */
-#keyboard {
-    position: relative;
-    width: 720px; 
-    height: 150px; 
-    margin: 20px auto;
-    border: 1px solid #000;
-    background-color: #222;
-    border-radius: 5px;
-    user-select: none; 
-}
-
-.key {
-    cursor: pointer;
-    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5);
-    transition: transform 0.05s ease, background-color 0.1s;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end; /* CRÍTICO: Mantiene la letra en la parte inferior */
-    padding-bottom: 5px; 
-    font-size: 0.8em;
-    user-select: none; 
-    line-height: 1; 
-}
-
-/* WHITE KEYS */
-.white-key {
-    box-sizing: border-box;
-    width: 60px;
-    height: 100%;
-    background-color: #fff;
-    border: 1px solid #ccc;
-    border-right: none;
-    float: left; 
-    z-index: 1; 
-    color: #000;
-}
-#keyboard .white-key:last-child {
-    border-right: 1px solid #ccc;
-}
-
-
-/* BLACK KEYS */
-.black-key {
-    position: absolute; 
-    width: 38px;
-    height: 60%; 
-    top: 0;
-    background-color: #000;
-    border: 1px solid #111;
-    z-index: 2; 
-    color: #fff;
-    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
-}
-
-
-/* Posicionamiento de las teclas negras */
-/* Las posiciones son el inicio de la tecla blanca anterior + 40px para centrarla sobre la unión de teclas */
-[data-code="KeyW"] { left: 40px; } /* A (0px) + 40px = 40px. (Anteriormente 41px) */
-[data-code="KeyE"] { left: 100px; } /* S (60px) + 40px = 100px. (Anteriormente 101px) */
-[data-code="KeyT"] { left: 220px; } /* D (180px) + 40px = 220px. (Anteriormente 221px) */
-[data-code="KeyY"] { left: 280px; } /* F (240px) + 40px = 280px. (Anteriormente 281px) */
-[data-code="KeyU"] { left: 340px; } /* G (300px) + 40px = 340px. (Anteriormente 341px) */
-/* --- CORRECCIONES A PARTIR DE AQUÍ --- */
-[data-code="KeyI"] { left: 460px; } /* J (420px) + 40px = 460px. (Anteriormente 461px) */
-[data-code="KeyO"] { left: 520px; } /* K (480px) + 40px = 520px. (Anteriormente 521px) */
-[data-code="KeyP"] { left: 580px; } /* L (540px) + 40px = 580px. (Anteriormente 581px) */
-[data-code="KeyOemOpenBrackets"] { left: 640px; } /* ; (600px) + 40px = 640px. (Anteriormente 642px) */
-
-
-/* EFECTOS DE PULSACIÓN (Press/Active state) */
-.key.pressed, .key:active {
-    transform: translateY(2px); 
-    box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5) inset;
-}
-
-.white-key.pressed, .white-key:active {
-    background-color: #ccc;
-}
-
-.black-key.pressed, .black-key:active {
-    background-color: #1a1a1a !important; 
-}
+    <script src="https://unpkg.com/midi-writer-js@2.1.2/dist/midi-writer-js.min.js"></script>
+    <script src="piano.js"></script> 
+</body>
+</html>
