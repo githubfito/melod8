@@ -31,6 +31,19 @@ h1 {
     padding-right: 5px;
 }
 
+/* MODIFICACIÓN: Estilo para el enlace dentro del #credit-by-fito */
+#credit-by-fito a {
+    color: #006400; /* Hereda el color del span */
+    text-decoration: none; /* Elimina el subrayado por defecto */
+    font-weight: normal;
+}
+
+#credit-by-fito a:hover {
+    text-decoration: underline; /* Añade subrayado al pasar el ratón para indicar que es un enlace */
+}
+/* -------------------------------------------------------------------------- */
+
+
 #version-text {
     font-weight: bold;
 }
@@ -119,15 +132,18 @@ h1 {
 
 
 /* Posicionamiento de las teclas negras */
-[data-code="KeyW"] { left: 41px; } 
-[data-code="KeyE"] { left: 101px; } 
-[data-code="KeyT"] { left: 221px; } 
-[data-code="KeyY"] { left: 281px; } 
-[data-code="KeyU"] { left: 341px; } 
-[data-code="KeyI"] { left: 461px; } 
-[data-code="KeyO"] { left: 521px; } 
-[data-code="KeyP"] { left: 581px; } 
-[data-code="KeyOemOpenBrackets"] { left: 642px; } 
+/* Las posiciones son el inicio de la tecla blanca anterior + 40px para centrarla sobre la unión de teclas */
+[data-code="KeyW"] { left: 40px; } /* A (0px) + 40px = 40px. (Anteriormente 41px) */
+[data-code="KeyE"] { left: 100px; } /* S (60px) + 40px = 100px. (Anteriormente 101px) */
+[data-code="KeyT"] { left: 220px; } /* D (180px) + 40px = 220px. (Anteriormente 221px) */
+[data-code="KeyY"] { left: 280px; } /* F (240px) + 40px = 280px. (Anteriormente 281px) */
+[data-code="KeyU"] { left: 340px; } /* G (300px) + 40px = 340px. (Anteriormente 341px) */
+/* --- CORRECCIONES A PARTIR DE AQUÍ --- */
+[data-code="KeyI"] { left: 460px; } /* J (420px) + 40px = 460px. (Anteriormente 461px) */
+[data-code="KeyO"] { left: 520px; } /* K (480px) + 40px = 520px. (Anteriormente 521px) */
+[data-code="KeyP"] { left: 580px; } /* L (540px) + 40px = 580px. (Anteriormente 581px) */
+[data-code="KeyOemOpenBrackets"] { left: 640px; } /* ; (600px) + 40px = 640px. (Anteriormente 642px) */
+
 
 /* EFECTOS DE PULSACIÓN (Press/Active state) */
 .key.pressed, .key:active {
