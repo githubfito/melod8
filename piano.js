@@ -914,7 +914,7 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     const PAUSE_DATA_MARKER = 99;     // <--- Marcador clave para PAUSE (99)
 
     // --- MODIFICACIÓN CLAVE PARA ACELERACIÓN ---
-    const SPEED_FACTOR_ZX = 0.8; // Factor de velocidad: 0.8 = 20% más rápido
+    const SPEED_FACTOR_ZX = 0.9; // Factor de velocidad: 0.8 = 20% más rápido
     this.logToConsole("Applying ZX Speed Factor: " + SPEED_FACTOR_ZX.toFixed(2));
     // ------------------------------------------
 
@@ -1142,3 +1142,4 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!window.piano) window.piano = new Piano(); 
     }
 });
+
