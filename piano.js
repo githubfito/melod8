@@ -913,6 +913,11 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     const PAIRS_PER_LINE = 8;         // Número de pares por línea DATA
     const PAUSE_DATA_MARKER = 99;     // <--- Marcador clave para PAUSE (99)
 
+    // --- MODIFICACIÓN CLAVE PARA ACELERACIÓN ---
+    const SPEED_FACTOR_ZX = 0.8; // Factor de velocidad: 0.8 = 20% más rápido
+    this.logToConsole("Applying ZX Speed Factor: " + SPEED_FACTOR_ZX.toFixed(2));
+    // ------------------------------------------
+
     // Inicialización de variables importantes
     let dataLineNumber = LINEA_DATA_INICIO;
     let programLineNumber = LINEA_PROGRAMA_INICIO;
@@ -951,20 +956,22 @@ Piano.prototype.generarYGuardarZxBasic = function() {
             const n = this.grabacion[i];
             let P = 0;  // Pitch (99 para pausa)
             let D = 0;  // Duración
+            
+            // *** APLICAR FACTOR DE VELOCIDAD ***
+            const adjustedDurationMs = n.duracionMs * SPEED_FACTOR_ZX;
 
             if (n.frecuencia > 0) {
                 // Cálculo para BEEP (Nota)
-                let durSeg = n.duracionMs / 1000.0;
+                let durSeg = adjustedDurationMs / 1000.0; // Usa la duración ajustada
                 let freqHz = Math.max(20.0, n.frecuencia);
                 let semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
-                let pitch = Math.round(semitones - 69.0);
-                P = Math.max(-60, Math.min(60, pitch));
+                P = Math.round(semitones - 69.0);
+                P = Math.max(-60, Math.min(60, P));
                 D = durSeg.toFixed(3);
             } else {
                 // Cálculo para PAUSE 
-                // *** P ahora es 99 (PAUSE_DATA_MARKER) ***
                 P = PAUSE_DATA_MARKER; 
-                let durFrames = Math.round(n.duracionMs / 20.0);
+                let durFrames = Math.round(adjustedDurationMs / 20.0); // Usa la duración ajustada
                 D = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
             }
 
@@ -991,21 +998,24 @@ Piano.prototype.generarYGuardarZxBasic = function() {
         sb += dataLineNumber + " DATA -99,0\n";
             
     } else {
-        // Lógica de exportación línea por línea (sin cambios)
+        // Lógica de exportación línea por línea
         this.logToConsole("Exporting to ZX line by line (BEEP/PAUSE Format)...");
         let linea = LINEA_PROGRAMA_INICIO;
 
         for (let i = 0; i < this.grabacion.length; i++) {
             const n = this.grabacion[i];
+            
+            // *** APLICAR FACTOR DE VELOCIDAD ***
+            const adjustedDurationMs = n.duracionMs * SPEED_FACTOR_ZX;
 
             if (n.frecuencia > 0) {
-                const durSeg = n.duracionMs / 1000.0;
+                const durSeg = adjustedDurationMs / 1000.0; // Usa la duración ajustada
                 const freqHz = Math.max(20.0, n.frecuencia);
                 const semitones = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
                 const pitch = Math.round(semitones - 69.0);
                 sb += linea + " BEEP " + durSeg.toFixed(3) + "," + pitch + "\n";
             } else {
-                let durFrames = Math.round(n.duracionMs / 20.0);
+                let durFrames = Math.round(adjustedDurationMs / 20.0); // Usa la duración ajustada
                 durFrames = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
                 sb += linea + " PAUSE " + durFrames + "\n";
             }
