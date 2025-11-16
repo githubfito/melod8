@@ -810,7 +810,7 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
 };
 
 /**
- * **VERSIÓN CORREGIDA PARA RESOLVER EL ERROR DEL GOTO 80.**
+ * **VERSIÓN MODIFICADA para aplicar la reducción del 20% solo a las NOTAS, dejando las pausas sin modificar.**
  * Utiliza marcadores de texto y sustitución para obtener el número de línea real.
  */
 Piano.prototype.generarYGuardarPbString = function() {
@@ -840,6 +840,10 @@ Piano.prototype.generarYGuardarPbString = function() {
     const GOTO_SOUND_MARKER = "GOTO_SOUND_LINE";
     const GOTO_PLAY_END_MARKER = "GOTO_END_FROM_PLAY";
 
+    // --- Constant for 20% reduction in SOUND duration (80% remaining) ---
+    const SOUND_DURATION_FACTOR = 0.8; 
+    // -------------------------------------------------------------------
+
     // 1. GENERAR DATOS (Necesario para calcular la longitud de los bloques)
     for (var i = 0; i < this.grabacion.length; i++) {
         var n = this.grabacion[i];
@@ -859,9 +863,19 @@ Piano.prototype.generarYGuardarPbString = function() {
             play += "P";    
         }
         
-        // Lógica SOUND
-        var durationTicks = n.duracionMs / 54.945;
+        // Lógica SOUND (MODIFICADO)
         var soundFreq = (n.frecuencia > 0) ? Math.round(freqHz) : 1; 
+        var durationTicks;
+        
+        if (n.frecuencia > 0) {
+            // Nota: Aplicar la reducción del 20% (multiplicar por 0.8)
+            var adjustedDurationMs = n.duracionMs * SOUND_DURATION_FACTOR; 
+            durationTicks = adjustedDurationMs / 54.945; 
+        } else {
+            // Pausa (freq=0): Mantener la duración original
+            var originalDurationMs = n.duracionMs;
+            durationTicks = originalDurationMs / 54.945; 
+        }
         
         var newPair = soundFreq + "," + durationTicks.toFixed(2);
 
@@ -989,15 +1003,15 @@ Piano.prototype.generarYGuardarPbString = function() {
     sb += linea + "  READ FREQ, DUR ' DURACION en Ticks\n"; 
     linea += 10;
 
-    // Conversión de Ticks a Segundos
-    sb += linea + "  DUR.SECS = DUR / 18.2\n";
+    // Conversión de Ticks a Segundos (Aproximadamente 1 Tick = 0.054945 segundos)
+    sb += linea + "  DUR.SECS = DUR * 54.945 / 1000.0\n";
     linea += 10;
     
     // Ejecutar SOUND (solo si la frecuencia es > 30 Hz)
     sb += linea + "  IF FREQ > 30 THEN SOUND FREQ, DUR\n";
     linea += 10;
     
-    // Pausa usando DELAY
+    // Pausa usando DELAY (la pausa debe ser la duración total de la nota + su decay)
     sb += linea + "  REM Pausa con DELAY\n";
     linea += 10;
     sb += linea + "  DELAY DUR.SECS\n";
@@ -1129,7 +1143,8 @@ Piano.prototype.generarYGuardarZxBasic = function() {
                 // Cálculo para PAUSE 
                 P = PAUSE_DATA_MARKER; 
                 let durFrames = Math.round(adjustedDurationMs / 20.0); // Usa la duración ajustada
-                D = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
+                durFrames = Math.max(1, Math.min(MAX_FRAME_DURATION, durFrames));
+                D = durFrames;
             }
 
             const dataChunk = P + "," + D + ",";
