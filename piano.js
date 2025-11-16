@@ -131,11 +131,12 @@ function Piano() {
     this.exportAsData = false; 
 
     // --- NEW: Version Constant ---
-    this.VERSION = "1.06"; // <-- VERSIÓN ACTUALIZADA
+    this.VERSION = "1.07"; // <-- VERSIÓN ACTUALIZADA
     
     // --- NEW: Version History Constant ---
     this.VERSIONES = 
 "### MELOD8 Web Piano - Version History ###\n" + 
+" 1.07 (2025-11-16): Feature: Added melody playback using SOUND and DATA lines in the PowerBASIC .bas file generation.\n" +
 " 1.06 (2025-11-15): Fix: Final visual/functional alignment: Last black key moved to 'BracketRight' (]) code; KeyO and KeyP positions corrected; Keyboard container width fixed to 722px to prevent visual overflow.\n" +
 " 1.05 (2025-11-15): Fix: Key mapping for black keys was updated to remove 'KeyI' and reassign remaining notes to a contiguous 8-key sequence.\n" +
 " 1.04 (2025-11-14): Fix: Eliminated duplicate file loading when pressing [1].\n" +
@@ -669,7 +670,10 @@ Piano.prototype.guardarMelodiaAArchivo = function() {
     var contenido = '';
     for (var i = 0; i < this.grabacion.length; i++) {
         var n = this.grabacion[i];
-        contenido += n.frecuencia.toFixed(0) + "," + n.duracionMs.toFixed(2) + ",00\n";
+        // Cambio clave: Añadir un tercer campo (ej: 00) para mayor robustez, tal como se hace en el parser.
+        // Si la frecuencia es 0 (pausa), se marca el tercer campo con 'PAUSE' para mejor legibilidad.
+        var marker = n.frecuencia === 0 ? "PAUSE" : "00";
+        contenido += n.frecuencia.toFixed(0) + "," + n.duracionMs.toFixed(2) + "," + marker + "\n";
     }
 
     var nombre = this.ultimoArchivoProcesado;
@@ -805,96 +809,249 @@ Piano.prototype.generarYGuardarAmstradBasic = function() {
     }
 };
 
+/**
+ * **VERSIÓN CORREGIDA PARA RESOLVER EL ERROR DEL GOTO 80.**
+ * Utiliza marcadores de texto y sustitución para obtener el número de línea real.
+ */
 Piano.prototype.generarYGuardarPbString = function() {
     this.eliminarPausasFinales();
 
     if (this.grabacion.length === 0) { this.logToConsole("No notes to export."); return; }
     
     var FILENAME = "MELOD8.BAS";
-    var sb = "10 REM MELOD8 by fitosoft POWERBASIC EXPORT\n";    
-    var linea = 20;
-    var play = "T255";    
-    var duracionL1Ms = 900.0;    
+    var sb = "10 REM MELOD8 by fitosoft POWERBASIC EXPORT\n"; 
+    var linea = 20; 
+    
+    var play = "T255";
+    var duracionL1Ms = 900.0;
+    
+    var dataLines = []; 
+    var currentDataLine = "";
+    var pairCounter = 0;
+    const MAX_PAIRS_PER_LINE = 10;
+    
+    var playMethodLine;
+    var soundMethodLine;
+    var dataLine; 
+    var endProgramLine;
 
-    // --- 1. GENERAR LA CADENA PLAY COMPLETA ---
+    // --- Marcadores de GOTO ---
+    const GOTO_PLAY_MARKER = "GOTO_PLAY_LINE";
+    const GOTO_SOUND_MARKER = "GOTO_SOUND_LINE";
+    const GOTO_PLAY_END_MARKER = "GOTO_END_FROM_PLAY";
+
+    // 1. GENERAR DATOS (Necesario para calcular la longitud de los bloques)
     for (var i = 0; i < this.grabacion.length; i++) {
         var n = this.grabacion[i];
+        var freqHz = Math.max(20.0, n.frecuencia);
         
-        // Calcular el factor de duración L
+        // Lógica PLAY
         var pb_L_factor = Math.round(duracionL1Ms / n.duracionMs);
         pb_L_factor = Math.max(1, Math.min(64, pb_L_factor));
-
         play += "L" + pb_L_factor;
 
         if (n.frecuencia > 0) {
-            // Calcular nota MIDI y convertir a nota PB
-            var freqHz = Math.max(20.0, n.frecuencia);
             var midiNote = 12.0 * (Math.log(freqHz / 440.0) / Math.log(2.0)) + 69.0;
             var pbNote = Math.round(midiNote - 36.0);    
-
             pbNote = Math.max(1, Math.min(84, pbNote));
-            
             play += "N" + pbNote;
         } else {
-            // Pausa
             play += "P";    
         }
-    }
+        
+        // Lógica SOUND
+        var durationTicks = n.duracionMs / 54.945;
+        var soundFreq = (n.frecuencia > 0) ? Math.round(freqHz) : 1; 
+        
+        var newPair = soundFreq + "," + durationTicks.toFixed(2);
 
-    // --- 2. EXPORTAR SIEMPRE CON LÍNEAS (Bloque 'else' original) ---
-    this.logToConsole("Exporting to PowerBASIC line by line (PLAY string).");
+        if (pairCounter > 0) {
+            currentDataLine += ",";
+        }
+        currentDataLine += newPair;
+        pairCounter++;
+
+        if (pairCounter >= MAX_PAIRS_PER_LINE || i === this.grabacion.length - 1) {
+            dataLines.push(currentDataLine);
+            currentDataLine = "";
+            pairCounter = 0;
+        }
+    }
     
+    var totalPairs = this.grabacion.length; 
+    
+    // --- 2. GENERACIÓN DEL CÓDIGO BASIC POR BLOQUES ---
+    this.logToConsole("Exporting to Basic file: Using secure substitution method for GOTO.");
+    
+    // -------------------------------------------------------------------------
+    // 2.1 INICIO Y MENÚ DE SELECCIÓN (Bloque de 9 líneas)
+    // -------------------------------------------------------------------------
+    
+    sb += linea + " CLS\n";
+    linea += 10;
+    sb += linea + " PRINT \"MELOD8 - SELECCIONA EL MÉTODO\"\n";
+    linea += 10;
+    sb += linea + " PRINT \"1. PLAY (Alto Nivel)\"\n";
+    linea += 10;
+    sb += linea + " PRINT \"2. SOUND (Bajo Nivel)\"\n";
+    linea += 10;
+    sb += linea + " INPUT \"Elige (1 o 2): \", METHOD\n";
+    linea += 10;
+    
+    // Saltos con Marcadores: Guardamos las líneas donde se harán las sustituciones.
+    var menuGoto1Line = linea; 
+    sb += linea + " IF METHOD = 1 THEN GOTO " + GOTO_PLAY_MARKER + "\n";
+    linea += 10;
+    var menuGoto2Line = linea;
+    sb += linea + " IF METHOD = 2 THEN GOTO " + GOTO_SOUND_MARKER + "\n";
+    linea += 10;
+    sb += linea + " PRINT \"Opción no válida. Ejecutando PLAY por defecto.\"\n";
+    linea += 10;
+    var menuGotoDefaultLine = linea;
+    sb += linea + " GOTO " + GOTO_PLAY_MARKER + "\n"; 
+    linea += 10; 
+    
+    
+    // -------------------------------------------------------------------------
+    // 2.2 MÉTODO PLAY (Calculamos la línea real de inicio)
+    // -------------------------------------------------------------------------
+    playMethodLine = linea; 
+    sb += playMethodLine + " REM -- PLAY METHOD START --\n"; 
+    linea = playMethodLine + 10;
+    
+    // Código de asignación de M$
     var maxLen = 70;    
     var idx = 0;
     var firstPart = true;
-
     while (idx < play.length) {
         var len = Math.min(maxLen, play.length - idx);
         var part = play.substring(idx, idx + len);
         
         // Ajuste para evitar cortar un comando N, L o P a la mitad
-        // Buscar el inicio de un comando al final de la parte
-        var lastCommandStart = part.search(/[LNP]\d*$/); 
-        
-        if (lastCommandStart > 0 && (idx + lastCommandStart) < play.length) {
-             // Si encontramos un comando incompleto al final, acortar la parte justo antes.
-            len = lastCommandStart;
-            part = play.substring(idx, idx + len);
-        } else if (lastCommandStart === 0 && !firstPart) {
-             // Si la línea empieza con un comando (ej: L64N60...), no lo cortamos.
-             // Esto lo maneja automáticamente si la longitud es menor que maxLen.
+        var safeBreakPoint = -1;
+        if (idx + len < play.length) {
+             for (let k = part.length - 1; k >= 0; k--) {
+                // Buscamos el inicio de un comando (L, N, P) seguido de un dígito
+                if (part[k].match(/[LNP]/) && (k + 1 < part.length) && part[k+1].match(/\d/)) {
+                    safeBreakPoint = k;
+                    break;
+                }
+            }
         }
-        
+        if (safeBreakPoint > 0) {
+            len = safeBreakPoint;
+            part = play.substring(idx, idx + len);
+        }
+
         if (firstPart) {
             sb += linea + " M$ = \"" + part + "\"\n";
             firstPart = false;
         } else {
             sb += linea + " M$ = M$ + \"" + part + "\"\n";
         }
-        idx += part.length; // Usar part.length para la longitud real después del ajuste
-        linea += 10;    
+        idx += part.length; 
+        linea += 10; 
     }
-
+    sb += linea + " PRINT \"Reproduciendo con PLAY...\"\n";
+    linea += 10;
     sb += linea + " PLAY M$\n";
     linea += 10;
     
-    // --- Espera de tecla para que la ejecución no termine al instante (OPCIONAL) ---
+    // Salto al final del programa (con marcador)
+    var playGotoEndLine = linea;
+    sb += linea + " GOTO " + GOTO_PLAY_END_MARKER + "\n"; 
+    linea += 10;
+    
+    
+    // -------------------------------------------------------------------------
+    // 2.3 MÉTODO SOUND (Calculamos la línea real de inicio)
+    // -------------------------------------------------------------------------
+    soundMethodLine = linea; 
+    sb += soundMethodLine + " REM -- SOUND METHOD START --\n"; 
+    linea = soundMethodLine + 10;
+
+    // 1. Definición de DATA
+    dataLine = linea; 
+    for (var i = 0; i < dataLines.length; i++) {
+        sb += linea + " DATA " + dataLines[i] + " : REM Pares Frec, Dur (Linea " + (i+1) + ")\n"; 
+        linea += 10; 
+    }
+    
+    // 2. Carga de Datos y Bucle
+    sb += linea + " RESTORE " + dataLine + " ' Apunta al inicio de la primera DATA\n";
+    linea += 10;
+    sb += linea + " PRINT \"Reproduciendo con SOUND...\"\n";
+    linea += 10;
+    
+    sb += linea + " FOR I = 1 TO " + totalPairs + "\n";
+    linea += 10;
+    
+    sb += linea + "  READ FREQ, DUR ' DURACION en Ticks\n"; 
+    linea += 10;
+
+    // Conversión de Ticks a Segundos
+    sb += linea + "  DUR.SECS = DUR / 18.2\n";
+    linea += 10;
+    
+    // Ejecutar SOUND (solo si la frecuencia es > 30 Hz)
+    sb += linea + "  IF FREQ > 30 THEN SOUND FREQ, DUR\n";
+    linea += 10;
+    
+    // Pausa usando DELAY
+    sb += linea + "  REM Pausa con DELAY\n";
+    linea += 10;
+    sb += linea + "  DELAY DUR.SECS\n";
+    linea += 10;
+    
+    sb += linea + " NEXT I\n";
+    linea += 10;
+
+    // Limpiar el buffer de sonido al final
+    sb += linea + " SOUND 0, 0\n";
+    linea += 10;
+    
+    
+    // -------------------------------------------------------------------------
+    // 2.4 FIN DEL PROGRAMA (Calculamos la línea real de inicio)
+    // -------------------------------------------------------------------------
+    endProgramLine = linea; 
+    
+    sb += endProgramLine + " REM -- END PROGRAM --\n";
+    linea += 10;
+    
+    // Espera de tecla
     sb += linea + " PRINT \"Press a key to finish...\"\n";
     linea += 10;
     sb += linea + " WHILE INKEY$=\"\":WEND\n";
     linea += 10;
-    // ------------------------------------------------------------------------------------
 
     sb += linea + " END\n";
 
+    // -------------------------------------------------------------------------
+    // 3. SUSTITUCIÓN FINAL DE MARCADORES POR NÚMEROS DE LÍNEA REALES
+    // -------------------------------------------------------------------------
+    
+    // 1. GOTO del Menú a PLAY
+    var regexPlay = new RegExp(GOTO_PLAY_MARKER, 'g');
+    sb = sb.replace(regexPlay, playMethodLine); 
 
-    // --- 3. MENSAJE FINAL ESTANDARIZADO ---
+    // 2. GOTO del Menú a SOUND
+    var regexSound = new RegExp(GOTO_SOUND_MARKER, 'g');
+    sb = sb.replace(regexSound, soundMethodLine); 
+    
+    // 3. GOTO del PLAY al END
+    var regexEnd = new RegExp(GOTO_PLAY_END_MARKER, 'g');
+    sb = sb.replace(regexEnd, endProgramLine); 
+
+
+    // --- 4. MENSAJE FINAL ESTANDARIZADO ---
     if (guardarArchivoComo(sb, FILENAME)) {
-        this.logToConsole("Preparing to save basic file for PowerBasic");
+        this.logToConsole("All GOTO lines successfully replaced with calculated values. File ready.");
     } else {
         this.logToConsole("ERROR exporting PowerBASIC. Check the browser console.");
     }
 };
+
 
 Piano.prototype.generarYGuardarZxBasic = function() {
     this.eliminarPausasFinales();
@@ -1142,4 +1299,3 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!window.piano) window.piano = new Piano(); 
     }
 });
-
