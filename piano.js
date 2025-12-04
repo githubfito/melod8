@@ -514,9 +514,15 @@ Piano.prototype.reproducirGrabacion = function() {
     var currentInstrument = self.instruments[self.instrumentIndex];
 
     function playNext(index) {
+        // Limpieza de seguridad: Si la reproducción se cancela o termina, quitar cualquier tecla iluminada residual
         if (index >= self.grabacion.length || self.cancelPlayback) {
             self.isPlaying = false;
             self.cancelPlayback = false;
+            
+            // Quitar clase 'pressed' de todas las teclas por si acaso quedó alguna pillada
+            var teclasIluminadas = document.querySelectorAll('.key.pressed');
+            teclasIluminadas.forEach(function(k) { k.classList.remove('pressed'); });
+
             self.logToConsole("--- END PLAYBACK ---");
             self.updateUIStatus();
             return;
@@ -524,35 +530,53 @@ Piano.prototype.reproducirGrabacion = function() {
 
         var nota = self.grabacion[index];
         var promise;
+        var keyElement = null; // Variable para guardar la referencia visual de la tecla
 
+        // --- 1. LÓGICA VISUAL: Identificar y encender la tecla ---
         if (nota.frecuencia > 0) {
-            // startBeep solo realiza el ATAQUE. 
+            // Calculamos qué tecla física produce esta frecuencia con la octava actual
+            var currentOctaveFactor = self.octavaFactor[self.indiceOctavaActual];
+
+            // Buscamos en el mapa de frecuencias inverso
+            for (var code in self.frecuenciaPorTecla) {
+                var baseFreq = self.frecuenciaPorTecla[code];
+                // Frecuencia esperada = FrecuenciaBase * FactorOctava
+                // Usamos un pequeño margen de error (1.0) para comparar floats
+                if (Math.abs((baseFreq * currentOctaveFactor) - nota.frecuencia) < 1.0) {
+                    keyElement = document.querySelector('.key[data-code="' + code + '"]');
+                    break;
+                }
+            }
+
+            // Si encontramos la tecla visual correspondiente, la encendemos
+            if (keyElement) {
+                keyElement.classList.add('pressed');
+            }
+        }
+        // ---------------------------------------------------------
+
+        // --- 2. LÓGICA DE AUDIO ---
+        if (nota.frecuencia > 0) {
             var audioNode = startBeep(nota.frecuencia, currentInstrument); 
-            // stopBeep: programa el release *en segundo plano* y devuelve una promesa 
-            // que se resuelve al finalizar la duración grabada (durationMs).
             promise = stopBeep(audioNode, nota.duracionMs, currentInstrument);
         } else {
             promise = new Promise(function(resolve) {
-                // Las pausas solo esperan la duración grabada.
                 setTimeout(resolve, nota.duracionMs);
             });
         }
         
         promise.then(function() {
-            // La siguiente nota/pausa se llama inmediatamente después de que termina el tiempo grabado.
+            // --- 3. APAGAR TECLA VISUAL AL TERMINAR LA NOTA ---
+            if (keyElement) {
+                keyElement.classList.remove('pressed');
+            }
+            
+            // Reproducir siguiente nota
             playNext(index + 1);
         });
     }
 
     playNext(0);
-};
-
-Piano.prototype.changeOctave = function(delta) {
-    var newIndex = this.indiceOctavaActual + delta;
-    if (newIndex >= 0 && newIndex < this.octavaFactor.length) {
-        this.indiceOctavaActual = newIndex;
-        this.logToConsole("Octave changed. Factor: " + this.octavaFactor[this.indiceOctavaActual].toFixed(2));
-    }
 };
 
 Piano.prototype.eliminarPausasFinales = function() {
@@ -1314,3 +1338,4 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!window.piano) window.piano = new Piano(); 
     }
 });
+
