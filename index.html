@@ -47,7 +47,15 @@
         <button onclick="piano.handleCommand('1')">[1] Load (.MUS)</button>
         <button onclick="piano.handleCommand('2')">[2] Save (.MUS)</button>
         <button onclick="piano.handleCommand('3')">[3] Play</button>
-        <button onclick="piano.handleCommand('4')">[4] CPC</button> <button onclick="piano.handleCommand('5')">[5] PB</button> <button onclick="piano.handleCommand('6')">[6] ZX</button> <button onclick="piano.changeInstrument(-1)">[Z] Ins-</button>  <button onclick="piano.changeInstrument(1)">[X] Ins+</button>  <button onclick="piano.handleCommand(',')">[ , ] Oct-</button> <button onclick="piano.handleCommand('.')">[ . ] Oct+</button> <button onclick="piano.handleCommand('m')">[M] Help</button>
+        <button onclick="piano.handleCommand('4')">[4] CPC</button> 
+        <button onclick="piano.handleCommand('5')">[5] PB</button> 
+        <button onclick="piano.handleCommand('6')">[6] ZX</button> 
+        <button onclick="piano.handleCommand('7')">[7] ABASC</button> 
+        <button onclick="piano.changeInstrument(-1)">[Z] Ins-</button>  
+        <button onclick="piano.changeInstrument(1)">[X] Ins+</button>  
+        <button onclick="piano.handleCommand(',')">[ , ] Oct-</button> 
+        <button onclick="piano.handleCommand('.')">[ . ] Oct+</button> 
+        <button onclick="piano.handleCommand('m')">[M] Help</button>
         <input type="checkbox" id="export-as-data" onchange="window.piano.setExportAsData(this.checked)">
         <label for="export-as-data">Export as DATA</label>
     </div>
