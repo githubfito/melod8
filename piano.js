@@ -167,12 +167,27 @@ function Piano() {
 // --- PIANO CLASS METHODS ---
 
 /**
+ * Método para cambiar la octava activa.
+ * @param {number} delta - Dirección del cambio (-1 o 1).
+ */
+Piano.prototype.changeOctave = function(delta) {
+    var nuevoIndice = this.indiceOctavaActual + delta;
+    if (nuevoIndice >= 0 && nuevoIndice < this.octavaFactor.length) {
+        this.indiceOctavaActual = nuevoIndice;
+        this.logToConsole("Octave factor set to x" + this.octavaFactor[this.indiceOctavaActual].toFixed(2));
+        this.updateUIStatus();
+    } else {
+        this.logToConsole("Octave limit reached.");
+    }
+};
+
+/**
  * Método requerido para manejar el checkbox de exportación DATA/READ.
  */
 Piano.prototype.setExportAsData = function(isChecked) {
     this.exportAsData = isChecked;
     this.logToConsole("Export as DATA/READ: " + (isChecked ? "ACTIVE" : "INACTIVE"));
-}
+};
 
 Piano.prototype.logToConsole = function(texto) {
     var timestamp = new Date().toLocaleTimeString('en-US'); // Changed locale to US for timestamps
@@ -308,7 +323,7 @@ Piano.prototype.handleKeyDown = function(event) {
              );
         }
         
-        this.handleCommand(commandKey);
+        this.handleCommand(commandKey, event.code);
     }
 };
 
@@ -338,7 +353,7 @@ Piano.prototype.changeInstrument = function(delta) {
     this.logToConsole("Using instrument: " + instrumentName + " (Index " + (newIndex + 1) + "/" + totalInstruments + ")");
 };
 
-Piano.prototype.handleCommand = function(key) {
+Piano.prototype.handleCommand = function(key, code) {
     if (key === '0') {
         this.lockAndClearRecording();
     } else if (key === '1') {
@@ -356,9 +371,9 @@ Piano.prototype.handleCommand = function(key) {
         this.generarYGuardarZxBasic();
     } else if (key === '7') {
         this.generarYGuardarAbascBasic();
-    } else if (key === ',') {
+    } else if (key === ',' || code === 'Comma') {
         this.changeOctave(-1);
-    } else if (key === '.') {
+    } else if (key === '.' || code === 'Period') {
         this.changeOctave(1);
     } else if (key === 'm') { 
         this.mostrarAyudaCompleta();
@@ -970,7 +985,7 @@ Piano.prototype.generarYGuardarZxBasic = function() {
     const LINEA_FIN = 1000;             
     const MAX_FRAME_DURATION = 32767;
     const PAIRS_PER_LINE = 8;         
-    const PAUSE_DATA_MARKER = 99;     
+    const PAUSE_DATA_MARKER = 99;      
 
     const SPEED_FACTOR_ZX = 0.9; 
     this.logToConsole("Applying ZX Speed Factor: " + SPEED_FACTOR_ZX.toFixed(2));
